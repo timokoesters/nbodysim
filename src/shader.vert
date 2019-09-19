@@ -39,13 +39,18 @@ void main() {
     data[i].pos += data[i].vel * delta;
     vec2 real_pos = data_old[i].pos * zoom;
     gl_Position = vec4(real_pos, 0.0, 1.0);
-    gl_PointSize = sqrt(data_old[i].mass * 2E-27);
+
+    if(data_old[i].mass != 0.0) {
+        gl_PointSize = sqrt(data_old[i].mass * 2E-27);
+    } else {
+        gl_PointSize = 2;
+    }
 
     // Respawn particles
-    if(real_pos.x < -1 || real_pos.x > 1 || real_pos.y < -1 || real_pos.y > 1) {
-        data[i].pos = vec2(rand(data_old[i].pos) * 5E9, rand(data_old[i].pos*2.356) * 5E9);
-        data[i].vel = vec2(rand(data_old[i].pos*1.235) * 2E5, rand(data_old[i].pos*5.283) * 2E5);
-    }
+    //if(real_pos.x < -1 || real_pos.x > 1 || real_pos.y < -1 || real_pos.y > 1) {
+    //    data[i].pos = vec2(rand(data_old[i].pos) * 5E9, rand(data_old[i].pos*2.356) * 5E9);
+    //    data[i].vel = vec2(rand(data_old[i].pos*1.235) * 2E5, rand(data_old[i].pos*5.283) * 2E5);
+    //}
 
     vec2 temp = vec2(0.0, 0.0);
 

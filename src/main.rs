@@ -4,16 +4,18 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 
-#[derive(Clone, Copy)]
+const G: f32 = 6.67408E-11;
+
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct Particle {
-    _pos: [f32; 2],
-    _vel: [f32; 2],
-    _mass: f32,
+    pos: [f32; 2],
+    vel: [f32; 2],
+    mass: f32,
     _p: f32,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct Globals {
     particles: u32,
@@ -25,27 +27,45 @@ struct Globals {
 impl Particle {
     fn new(pos: [f32; 2], vel: [f32; 2], mass: f32) -> Self {
         Self {
-            _pos: pos,
-            _vel: vel,
-            _mass: mass,
-            ..Default::default()
+            pos: pos,
+            vel: vel,
+            mass,
+            _p: 0.0,
         }
     }
     fn random(mass_distribution: impl Distribution<f32>) -> Self {
-        // Returns a random coordinate from -1 to 1
-        fn randc() -> f32 {
-            (thread_rng().gen::<f32>() - 0.5) * 2.0
-        }
-
         Self {
-            _pos: [
+            pos: [
                 if thread_rng().gen() { -3E9 } else { 3E9 } + randc() * 1E9,
                 randc() * 3E8,
             ],
-            _vel: [randc() * 1E3, randc() * 7E5],
-            _mass: (thread_rng().sample(mass_distribution) + 1.0) * 2E26,
+            vel: [randc() * 1E3, randc() * 7E5],
+            mass: (thread_rng().sample(mass_distribution) + 1.0) * 2E26,
             _p: 0.0,
         }
+    }
+}
+
+// Returns a random coordinate from -1 to 1
+fn randc() -> f32 {
+    (thread_rng().gen::<f32>() - 0.5) * 2.0
+}
+
+fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle) {
+    for i in 0..amount {
+        let dp = randc() * 5E9;
+
+        let mut pos = center.pos;
+        pos[0] += dp;
+
+        let mass = 0.0;
+
+        // Fg = Fg
+        // G * m1 * m2 / r^2 = m1 * v^2 / r
+        // sqrt(G * m2 / r) = v
+
+        let vel = [0.0, (G * center.mass / dp).sqrt()];
+        particles.push(Particle::new(pos, vel, mass));
     }
 }
 
@@ -53,13 +73,14 @@ fn main() {
     let mass_distribution = rand_distr::Exp::new(0.4).unwrap();
 
     let mut particles = Vec::new();
-    particles.push(Particle::new([0.0, 2E9], [1E5, 0.0], 2E30));
-    particles.push(Particle::new([0.0, -2E9], [-1E5, 0.0], 1E30));
-    particles.append(
-        &mut (0..5000)
-            .map(|_| Particle::random(&mass_distribution))
-            .collect(),
-    );
+
+    let center = Particle::new([-4E9, 0.0], [0.0, 0.0], 1E30);
+    generate_galaxy(&mut particles, 300, &center);
+    particles.push(center);
+
+    let center2 = Particle::new([4E9, 0.0], [0.0, 0.0], 1E30);
+    generate_galaxy(&mut particles, 300, &center2);
+    particles.push(center2);
 
     let globals = Globals {
         particles: particles.len() as u32,
@@ -76,7 +97,7 @@ fn run(globals: Globals, particles: Vec<Particle>) {
 
     let event_loop = EventLoop::new();
 
-    let size = (1920, 1080);
+    let size = (1080, 1080);
 
     #[cfg(not(feature = "gl"))]
     let (window, instance, size, surface) = {
