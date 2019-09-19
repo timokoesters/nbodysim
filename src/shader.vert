@@ -47,6 +47,8 @@ void main() {
         data[i].vel = vec2(rand(data_old[i].pos*1.235) * 2E5, rand(data_old[i].pos*5.283) * 2E5);
     }
 
+    vec2 temp = vec2(0.0, 0.0);
+
     // Gravity
     for(int j = 0; j < particles; j++) {
         if(j == i || data_old[j].mass == 0) { continue; }
@@ -55,7 +57,8 @@ void main() {
         float d2 = pow(length(diff), 2);
         if(d2 < MIN_DISTANCE2) { continue; }
 
-        vec2 dv = -G * dir * data_old[j].mass * delta / d2;
-        data[i].vel += dv;
+        temp += dir * data_old[j].mass / d2;
     }
+
+    data[i].vel = data_old[i].vel - temp * G * delta;
 }

@@ -28,7 +28,7 @@ impl Particle {
             _pos: pos,
             _vel: vel,
             _mass: mass,
-            _p: 0.0,
+            ..Default::default()
         }
     }
     fn random(mass_distribution: impl Distribution<f32>) -> Self {
