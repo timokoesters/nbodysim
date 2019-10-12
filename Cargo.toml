@@ -1,0 +1,16 @@
+[package]
+name = "wgpu-project"
+version = "0.1.0"
+authors = ["timokoesters <timo@koesters.xyz>"]
+edition = "2018"
+
+[features]
+default = ["wgpu/vulkan"]
+
+[dependencies]
+winit = "0.20.0-alpha3"
+wgpu = "0.3.0"
+glsl-to-spirv = "0.1.7"
+cgmath = "0.17.0"
+raw-window-handle = "0.1.2"
+rand = "0.7.0"
