@@ -100,7 +100,7 @@ fn run(globals: Globals, particles: Vec<Particle>) {
     let size = (1080, 1080);
 
     #[cfg(not(feature = "gl"))]
-    let (window, instance, size, surface) = {
+    let (window, instance, surface) = {
         use raw_window_handle::HasRawWindowHandle as _;
 
         let window = winit::window::Window::new(&event_loop).unwrap();
@@ -108,11 +108,11 @@ fn run(globals: Globals, particles: Vec<Particle>) {
         let instance = wgpu::Instance::new();
         let surface = instance.create_surface(window.raw_window_handle());
 
-        (window, instance, size, surface)
+        (window, instance, surface)
     };
 
     #[cfg(feature = "gl")]
-    let (window, instance, size, surface) = {
+    let (window, instance, surface) = {
         let wb = winit::WindowBuilder::new();
         let cb = wgpu::glutin::ContextBuilder::new().with_vsync(true);
         let context = cb.build_windowed(wb, &event_loop).unwrap();
@@ -122,9 +122,10 @@ fn run(globals: Globals, particles: Vec<Particle>) {
         let instance = wgpu::Instance::new(context);
         let surface = instance.get_surface();
 
-        (window, instance, size, surface)
+        (window, instance, surface)
     };
 
+    window.set_inner_size(size.into());
     window.set_resizable(false);
 
     let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
