@@ -1,3 +1,4 @@
+use cgmath::{Matrix4, Rad, Vector3};
 use rand::prelude::*;
 use std::f32::consts::PI;
 use winit::{
@@ -10,39 +11,42 @@ const G: f32 = 6.67408E-11;
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct Particle {
-    pos: [f32; 2],
-    vel: [f32; 2],
-    mass: f32,
-    _p: f32,
+    pos: Vector3<f32>, // 0, 1, 2
+    _p: f32,           // 3
+
+    vel: Vector3<f32>, // 4, 5, 6
+    mass: f32,         // 7
 }
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct Globals {
-    particles: u32,
+    matrix: Matrix4<f32>,
+    particles: u32, // 0
     zoom: f32,
     delta: f32,
     _p: f32,
 }
 
 impl Particle {
-    fn new(pos: [f32; 2], vel: [f32; 2], mass: f32) -> Self {
+    fn new(pos: Vector3<f32>, vel: Vector3<f32>, mass: f32) -> Self {
         Self {
-            pos: pos,
-            vel: vel,
-            mass,
+            pos,
             _p: 0.0,
+            vel,
+            mass,
         }
     }
     fn random(mass_distribution: impl Distribution<f32>) -> Self {
         Self {
-            pos: [
+            pos: Vector3::new(
                 if thread_rng().gen() { -3E9 } else { 3E9 } + randc() * 1E9,
                 randc() * 3E8,
-            ],
-            vel: [randc() * 1E3, randc() * 7E5],
-            mass: (thread_rng().sample(mass_distribution) + 1.0) * 2E26,
+                0.0,
+            ),
             _p: 0.0,
+            vel: Vector3::new(randc() * 1E3, randc() * 7E5, 0.0),
+            mass: (thread_rng().sample(mass_distribution) + 1.0) * 2E26,
         }
     }
 }
@@ -52,14 +56,14 @@ fn randc() -> f32 {
     (thread_rng().gen::<f32>() - 0.5) * 2.0
 }
 
-fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle) {
+fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle, clockwise: bool) {
     for i in 0..amount {
-        let radius = thread_rng().gen::<f32>() * 5E9;
+        let radius = 7E8 + thread_rng().gen::<f32>() * 12E8;
         let angle = thread_rng().gen::<f32>() * 2.0 * PI;
 
         let mut pos = center.pos;
-        pos[0] += radius * angle.cos();
-        pos[1] += radius * angle.sin();
+        pos.x += radius * angle.cos();
+        pos.y += radius * angle.sin();
 
         let mass = 0.0;
 
@@ -70,8 +74,8 @@ fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle
         let speed = (G * center.mass / radius).sqrt();
 
         let mut vel = center.vel;
-        vel[0] += speed * angle.sin();
-        vel[1] += -speed * angle.cos();
+        vel.x += speed * angle.sin() * if clockwise { -1.0 } else { 1.0 };
+        vel.y += speed * angle.cos() * if clockwise { 1.0 } else { -1.0 };
 
         particles.push(Particle::new(pos, vel, mass));
     }
@@ -82,25 +86,34 @@ fn main() {
 
     let mut particles = Vec::new();
 
-    let center = Particle::new([-4E9, 0.0], [0.0, -4E4], 1E30);
+    let center = Particle::new(
+        Vector3::new(-2E9, 0.0, 0.0),
+        Vector3::new(0.0, -5E4, 0.0),
+        1E30,
+    );
     particles.push(center);
-    generate_galaxy(&mut particles, 3000, &center);
+    generate_galaxy(&mut particles, 5000, &center, true);
 
-    let center2 = Particle::new([4E9, 0.0], [0.0, 4E4], 1E30);
+    let center2 = Particle::new(
+        Vector3::new(2E9, 0.0, 0.0),
+        Vector3::new(0.0, 5E4, 0.0),
+        1E30,
+    );
     particles.push(center2);
-    generate_galaxy(&mut particles, 3000, &center2);
+    generate_galaxy(&mut particles, 3000, &center2, false);
 
     let globals = Globals {
         particles: particles.len() as u32,
+        matrix: Matrix4::from_translation(Vector3::new(0.0, 0.0, 0.5)),
         zoom: 1E-10,
-        delta: 60.0,
+        delta: 100.0,
         _p: 0.0,
     };
 
     run(globals, particles);
 }
 
-fn run(globals: Globals, particles: Vec<Particle>) {
+fn run(mut globals: Globals, particles: Vec<Particle>) {
     let particles_size = (particles.len() * std::mem::size_of::<Particle>()) as u64;
 
     let event_loop = EventLoop::new();
@@ -318,6 +331,23 @@ fn run(globals: Globals, particles: Vec<Particle>) {
                 let frame = swap_chain.get_next_texture();
                 let mut encoder =
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+
+                // Create new globals buffer
+                globals.matrix = globals.matrix * Matrix4::from_angle_y(Rad(0.02));
+                let new_globals_buffer = device
+                    .create_buffer_mapped(
+                        1,
+                        wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                    )
+                    .fill_from_slice(&[globals]);
+                encoder.copy_buffer_to_buffer(
+                    &new_globals_buffer,
+                    0,
+                    &globals_buffer,
+                    0,
+                    std::mem::size_of::<Globals>() as u64,
+                );
+
                 encoder.copy_buffer_to_buffer(&current_buffer, 0, &old_buffer, 0, particles_size);
                 {
                     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {

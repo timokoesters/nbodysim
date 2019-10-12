@@ -6,15 +6,16 @@ out gl_PerVertex {
 };
 
 const float G = 6.67408E-11;
-const float MIN_DISTANCE2 = pow(1E8, 2);
+const float MIN_DISTANCE2 = pow(5E8, 2);
 
 struct Particle {
-    vec2 pos;
-    vec2 vel;
-    float mass;
+    vec3 pos; // 0, 1, 2
+    vec3 vel; // 4, 5, 6
+    float mass; // 7
 };
 
 layout(set = 0, binding = 0) uniform GlobalsBuffer {
+    mat4 matrix;
     uint particles;
     float zoom;
     float delta;
@@ -28,19 +29,24 @@ layout(std430, set = 0, binding = 2) buffer DataCurrent {
     Particle data[];
 };
 
-float rand(vec2 co) {
-    return (fract(sin(dot(co.xy, vec2(11.8743, 50.463))) * 48510.7134) - 0.5) * 2.0 ;
+float rand(vec3 co) {
+    return (fract(sin(dot(co.xyz, vec3(32.3485, 11.8743, 50.463))) * 48510.7134) - 0.5) * 2.0;
 }
 
 void main() {
     int i = gl_VertexIndex;
 
+    if(data_old[i].mass < 0) { 
+        gl_PointSize = 0;
+        return;
+    }
+
     // Update
     data[i].pos += data[i].vel * delta;
-    vec2 real_pos = data_old[i].pos * zoom;
-    gl_Position = vec4(real_pos, 0.0, 1.0);
+    vec3 real_pos = data_old[i].pos * zoom;
+    gl_Position = matrix * vec4(real_pos.xyz, 1.0);
 
-    if(data_old[i].mass != 0.0) {
+    if(data_old[i].mass > 0.0) {
         gl_PointSize = sqrt(data_old[i].mass * 2E-27);
     } else {
         gl_PointSize = 2;
@@ -52,15 +58,20 @@ void main() {
     //    data[i].vel = vec2(rand(data_old[i].pos*1.235) * 2E5, rand(data_old[i].pos*5.283) * 2E5);
     //}
 
-    vec2 temp = vec2(0.0, 0.0);
+    vec3 temp = vec3(0.0, 0.0, 0.0);
 
     // Gravity
     for(int j = 0; j < particles; j++) {
-        if(j == i || data_old[j].mass == 0) { continue; }
-        vec2 diff = data_old[i].pos - data_old[j].pos;
-        vec2 dir = normalize(diff);
+        vec3 diff = data_old[i].pos - data_old[j].pos;
         float d2 = pow(length(diff), 2);
-        if(d2 < MIN_DISTANCE2) { continue; }
+        if(d2 < MIN_DISTANCE2) {
+            if(data_old[j].mass > 0 && data_old[i].mass == 0) {
+                data[i].mass = -1;
+            }
+            continue;
+        }
+        if(j == i || data_old[j].mass == 0) { continue; }
+        vec3 dir = normalize(diff);
 
         temp += dir * data_old[j].mass / d2;
     }
