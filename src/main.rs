@@ -1,4 +1,4 @@
-use rand::Rng;
+use rand::prelude::*;
 use winit::{
     event,
     event_loop::{ControlFlow, EventLoop},
@@ -9,41 +9,80 @@ use winit::{
 struct Particle {
     _pos: [f32; 2],
     _vel: [f32; 2],
+    _mass: f32,
+    _p: f32,
+}
+
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct Globals {
+    particles: u32,
+    zoom: f32,
+    delta: f32,
+    _p: f32,
 }
 
 impl Particle {
-    fn new(pos: [f32; 2]) -> Self {
+    fn new(pos: [f32; 2], vel: [f32; 2], mass: f32) -> Self {
         Self {
             _pos: pos,
-            _vel: [0.0, 0.0],
+            _vel: vel,
+            _mass: mass,
+            _p: 0.0,
         }
     }
-    fn random() -> Self {
-        fn rand() -> f32 {
-            rand::thread_rng().gen::<f32>() * 2.0 - 1.0
+    fn random(mass_distribution: impl Distribution<f32>) -> Self {
+        // Returns a random coordinate from -1 to 1
+        fn randc() -> f32 {
+            (thread_rng().gen::<f32>() - 0.5) * 2.0
         }
+
         Self {
-            _pos: [rand(), rand()],
-            _vel: [rand() / 100.0, rand() / 100.0],
+            _pos: [
+                if thread_rng().gen() { -3E9 } else { 3E9 } + randc() * 1E9,
+                randc() * 3E8,
+            ],
+            _vel: [randc() * 1E3, randc() * 7E5],
+            _mass: (thread_rng().sample(mass_distribution) + 1.0) * 2E26,
+            _p: 0.0,
         }
     }
 }
 
 fn main() {
-    run((0..100).map(|_| Particle::random()).collect());
+    let mass_distribution = rand_distr::Exp::new(0.4).unwrap();
+
+    let mut particles = Vec::new();
+    particles.push(Particle::new([0.0, 2E9], [1E5, 0.0], 2E30));
+    particles.push(Particle::new([0.0, -2E9], [-1E5, 0.0], 1E30));
+    particles.append(
+        &mut (0..5000)
+            .map(|_| Particle::random(&mass_distribution))
+            .collect(),
+    );
+
+    let globals = Globals {
+        particles: particles.len() as u32,
+        zoom: 1E-10,
+        delta: 60.0,
+        _p: 0.0,
+    };
+
+    run(globals, particles);
 }
 
-fn run(particles: Vec<Particle>) {
+fn run(globals: Globals, particles: Vec<Particle>) {
     let particles_size = (particles.len() * std::mem::size_of::<Particle>()) as u64;
 
     let event_loop = EventLoop::new();
 
+    let size = (1920, 1080);
+
     #[cfg(not(feature = "gl"))]
-    let (_window, instance, size, surface) = {
+    let (window, instance, size, surface) = {
         use raw_window_handle::HasRawWindowHandle as _;
 
         let window = winit::window::Window::new(&event_loop).unwrap();
-        let size = window.inner_size().to_physical(window.hidpi_factor());
 
         let instance = wgpu::Instance::new();
         let surface = instance.create_surface(window.raw_window_handle());
@@ -52,16 +91,10 @@ fn run(particles: Vec<Particle>) {
     };
 
     #[cfg(feature = "gl")]
-    let (_window, instance, size, surface) = {
+    let (window, instance, size, surface) = {
         let wb = winit::WindowBuilder::new();
         let cb = wgpu::glutin::ContextBuilder::new().with_vsync(true);
         let context = cb.build_windowed(wb, &event_loop).unwrap();
-
-        let size = context
-            .window()
-            .get_inner_size()
-            .unwrap()
-            .to_physical(context.window().get_hidpi_factor());
 
         let (context, window) = unsafe { context.make_current().unwrap().split() };
 
@@ -70,6 +103,8 @@ fn run(particles: Vec<Particle>) {
 
         (window, instance, size, surface)
     };
+
+    window.set_resizable(false);
 
     let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::LowPower,
@@ -97,27 +132,47 @@ fn run(particles: Vec<Particle>) {
     );
 
     // Create a new buffer
-    let staging_buffer = device
-        .create_buffer_mapped(
-            particles.len(),
-            wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::COPY_SRC,
-        )
-        .fill_from_slice(&particles);
+    let globals_buffer = device
+        .create_buffer_mapped(1, wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST)
+        .fill_from_slice(&[globals]);
 
     // Create a new buffer
-    let storage_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+    let old_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         size: particles_size,
         usage: wgpu::BufferUsage::MAP_READ
             | wgpu::BufferUsage::COPY_DST
             | wgpu::BufferUsage::COPY_SRC,
     });
 
+    // Create a new buffer
+    let current_buffer = device
+        .create_buffer_mapped(
+            particles.len(),
+            wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::COPY_SRC,
+        )
+        .fill_from_slice(&particles);
+
     // Describe the buffers that will be available to the GPU
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         bindings: &[
-            // Particle data
+            // Globals
             wgpu::BindGroupLayoutBinding {
                 binding: 0,
+                visibility: wgpu::ShaderStage::COMPUTE | wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::UniformBuffer { dynamic: false },
+            },
+            // Old Particle data
+            wgpu::BindGroupLayoutBinding {
+                binding: 1,
+                visibility: wgpu::ShaderStage::COMPUTE | wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::StorageBuffer {
+                    dynamic: false,
+                    readonly: true,
+                },
+            },
+            // Current Particle data
+            wgpu::BindGroupLayoutBinding {
+                binding: 2,
                 visibility: wgpu::ShaderStage::COMPUTE | wgpu::ShaderStage::VERTEX,
                 ty: wgpu::BindingType::StorageBuffer {
                     dynamic: false,
@@ -131,11 +186,27 @@ fn run(particles: Vec<Particle>) {
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &bind_group_layout,
         bindings: &[
-            // Particle data
+            // Globals
             wgpu::Binding {
                 binding: 0,
                 resource: wgpu::BindingResource::Buffer {
-                    buffer: &storage_buffer,
+                    buffer: &globals_buffer,
+                    range: 0..std::mem::size_of::<Globals>() as u64,
+                },
+            },
+            // Old Particle data
+            wgpu::Binding {
+                binding: 1,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &old_buffer,
+                    range: 0..particles_size,
+                },
+            },
+            // Current Particle data
+            wgpu::Binding {
+                binding: 2,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &current_buffer,
                     range: 0..particles_size,
                 },
             },
@@ -185,8 +256,8 @@ fn run(particles: Vec<Particle>) {
         &wgpu::SwapChainDescriptor {
             usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
             format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            width: size.width.round() as u32,
-            height: size.height.round() as u32,
+            width: size.0,
+            height: size.1,
             present_mode: wgpu::PresentMode::Vsync,
         },
     );
@@ -217,13 +288,7 @@ fn run(particles: Vec<Particle>) {
                 let frame = swap_chain.get_next_texture();
                 let mut encoder =
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-                encoder.copy_buffer_to_buffer(
-                    &staging_buffer,
-                    0,
-                    &storage_buffer,
-                    0,
-                    particles_size,
-                );
+                encoder.copy_buffer_to_buffer(&current_buffer, 0, &old_buffer, 0, particles_size);
                 {
                     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -239,13 +304,6 @@ fn run(particles: Vec<Particle>) {
                     rpass.set_bind_group(0, &bind_group, &[]);
                     rpass.draw(0..particles.len() as u32, 0..1);
                 }
-                encoder.copy_buffer_to_buffer(
-                    &storage_buffer,
-                    0,
-                    &staging_buffer,
-                    0,
-                    particles_size,
-                );
 
                 device.get_queue().submit(&[encoder.finish()]);
             }
