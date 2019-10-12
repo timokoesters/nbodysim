@@ -1,13 +1,41 @@
+use rand::Rng;
 use winit::{
     event,
     event_loop::{ControlFlow, EventLoop},
 };
 
-fn main() {
-    run();
+#[derive(Clone, Copy)]
+#[repr(C)]
+struct Particle {
+    _pos: [f32; 2],
+    _vel: [f32; 2],
 }
 
-fn run() {
+impl Particle {
+    fn new(pos: [f32; 2]) -> Self {
+        Self {
+            _pos: pos,
+            _vel: [0.0, 0.0],
+        }
+    }
+    fn random() -> Self {
+        fn rand() -> f32 {
+            rand::thread_rng().gen::<f32>() * 2.0 - 1.0
+        }
+        Self {
+            _pos: [rand(), rand()],
+            _vel: [rand() / 100.0, rand() / 100.0],
+        }
+    }
+}
+
+fn main() {
+    run((0..100).map(|_| Particle::random()).collect());
+}
+
+fn run(particles: Vec<Particle>) {
+    let particles_size = (particles.len() * std::mem::size_of::<Particle>()) as u64;
+
     let event_loop = EventLoop::new();
 
     #[cfg(not(feature = "gl"))]
@@ -44,7 +72,7 @@ fn run() {
     };
 
     let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::HighPerformance,
+        power_preference: wgpu::PowerPreference::LowPower,
     });
 
     let mut device = adapter.request_device(&wgpu::DeviceDescriptor {
@@ -68,14 +96,50 @@ fn run() {
             .unwrap(),
     );
 
+    // Create a new buffer
+    let staging_buffer = device
+        .create_buffer_mapped(
+            particles.len(),
+            wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::COPY_SRC,
+        )
+        .fill_from_slice(&particles);
+
+    // Create a new buffer
+    let storage_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        size: particles_size,
+        usage: wgpu::BufferUsage::MAP_READ
+            | wgpu::BufferUsage::COPY_DST
+            | wgpu::BufferUsage::COPY_SRC,
+    });
+
     // Describe the buffers that will be available to the GPU
-    let bind_group_layout =
-        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor { bindings: &[] });
+    let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+        bindings: &[
+            // Particle data
+            wgpu::BindGroupLayoutBinding {
+                binding: 0,
+                visibility: wgpu::ShaderStage::COMPUTE | wgpu::ShaderStage::VERTEX,
+                ty: wgpu::BindingType::StorageBuffer {
+                    dynamic: false,
+                    readonly: false,
+                },
+            },
+        ],
+    });
 
     // Create the resources described by the bind_group_layout
     let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
         layout: &bind_group_layout,
-        bindings: &[],
+        bindings: &[
+            // Particle data
+            wgpu::Binding {
+                binding: 0,
+                resource: wgpu::BindingResource::Buffer {
+                    buffer: &storage_buffer,
+                    range: 0..particles_size,
+                },
+            },
+        ],
     });
 
     // Combine all bind_group_layouts
@@ -153,6 +217,13 @@ fn run() {
                 let frame = swap_chain.get_next_texture();
                 let mut encoder =
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+                encoder.copy_buffer_to_buffer(
+                    &staging_buffer,
+                    0,
+                    &storage_buffer,
+                    0,
+                    particles_size,
+                );
                 {
                     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
@@ -166,8 +237,16 @@ fn run() {
                     });
                     rpass.set_pipeline(&render_pipeline);
                     rpass.set_bind_group(0, &bind_group, &[]);
-                    //rpass.draw(...);
+                    rpass.draw(0..particles.len() as u32, 0..1);
                 }
+                encoder.copy_buffer_to_buffer(
+                    &storage_buffer,
+                    0,
+                    &staging_buffer,
+                    0,
+                    particles_size,
+                );
+
                 device.get_queue().submit(&[encoder.finish()]);
             }
             _ => (),
