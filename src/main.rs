@@ -1,4 +1,5 @@
 use rand::prelude::*;
+use std::f32::consts::PI;
 use winit::{
     event,
     event_loop::{ControlFlow, EventLoop},
@@ -53,10 +54,12 @@ fn randc() -> f32 {
 
 fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle) {
     for i in 0..amount {
-        let dp = randc() * 5E9;
+        let radius = thread_rng().gen::<f32>() * 5E9;
+        let angle = thread_rng().gen::<f32>() * 2.0 * PI;
 
         let mut pos = center.pos;
-        pos[0] += dp;
+        pos[0] += radius * angle.cos();
+        pos[1] += radius * angle.sin();
 
         let mass = 0.0;
 
@@ -64,7 +67,12 @@ fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle
         // G * m1 * m2 / r^2 = m1 * v^2 / r
         // sqrt(G * m2 / r) = v
 
-        let vel = [0.0, (G * center.mass / dp).sqrt()];
+        let speed = (G * center.mass / radius).sqrt();
+
+        let mut vel = center.vel;
+        vel[0] += speed * angle.sin();
+        vel[1] += -speed * angle.cos();
+
         particles.push(Particle::new(pos, vel, mass));
     }
 }
@@ -74,13 +82,13 @@ fn main() {
 
     let mut particles = Vec::new();
 
-    let center = Particle::new([-4E9, 0.0], [0.0, 0.0], 1E30);
-    generate_galaxy(&mut particles, 300, &center);
+    let center = Particle::new([-4E9, 0.0], [0.0, -4E4], 1E30);
     particles.push(center);
+    generate_galaxy(&mut particles, 3000, &center);
 
-    let center2 = Particle::new([4E9, 0.0], [0.0, 0.0], 1E30);
-    generate_galaxy(&mut particles, 300, &center2);
+    let center2 = Particle::new([4E9, 0.0], [0.0, 4E4], 1E30);
     particles.push(center2);
+    generate_galaxy(&mut particles, 3000, &center2);
 
     let globals = Globals {
         particles: particles.len() as u32,
