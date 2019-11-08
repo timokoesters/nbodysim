@@ -6,7 +6,7 @@ out gl_PerVertex {
 };
 
 const float G = 6.67408E-11;
-const float MIN_DISTANCE2 = pow(5E8, 2);
+const float MIN_DISTANCE2 = pow(1E7, 2);
 
 struct Particle {
     vec3 pos; // 0, 1, 2
@@ -42,7 +42,7 @@ void main() {
     }
 
     // Update
-    data[i].pos += data[i].vel * delta;
+    data[i].pos += data_old[i].vel * delta;
     vec3 real_pos = data_old[i].pos * zoom;
     gl_Position = matrix * vec4(real_pos.xyz, 1.0);
 
@@ -76,5 +76,5 @@ void main() {
         temp += dir * data_old[j].mass / d2;
     }
 
-    data[i].vel = data_old[i].vel - temp * G * delta;
+    data[i].vel -= temp * G * delta;
 }

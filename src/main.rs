@@ -1,5 +1,6 @@
 use cgmath::{Matrix4, Rad, Vector3};
 use rand::prelude::*;
+use std::collections::HashSet;
 use std::f32::consts::PI;
 use winit::{
     event,
@@ -65,7 +66,7 @@ fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle
         pos.x += radius * angle.cos();
         pos.y += radius * angle.sin();
 
-        let mass = 0.0;
+        let mass = 1E27;
 
         // Fg = Fg
         // G * m1 * m2 / r^2 = m1 * v^2 / r
@@ -92,21 +93,21 @@ fn main() {
         1E30,
     );
     particles.push(center);
-    generate_galaxy(&mut particles, 5000, &center, true);
+    generate_galaxy(&mut particles, 500, &center, true);
 
     let center2 = Particle::new(
-        Vector3::new(2E9, 0.0, 0.0),
+        Vector3::new(2E9, 0.0, 1E9),
         Vector3::new(0.0, 5E4, 0.0),
         1E30,
     );
     particles.push(center2);
-    generate_galaxy(&mut particles, 3000, &center2, false);
+    generate_galaxy(&mut particles, 300, &center2, false);
 
     let globals = Globals {
         particles: particles.len() as u32,
         matrix: Matrix4::from_translation(Vector3::new(0.0, 0.0, 0.5)),
         zoom: 1E-10,
-        delta: 100.0,
+        delta: 20.0,
         _p: 0.0,
     };
 
@@ -305,11 +306,13 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         },
     );
 
+    let mut pressed_keys = HashSet::new();
+
     event_loop.run(move |event, _, control_flow| {
         *control_flow = if cfg!(feature = "metal-auto-capture") {
             ControlFlow::Exit
         } else {
-            ControlFlow::Poll
+            ControlFlow::Wait
         };
         match event {
             event::Event::WindowEvent { event, .. } => match event {
@@ -325,49 +328,95 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                 | event::WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
                 }
+                event::WindowEvent::KeyboardInput {
+                    input:
+                        event::KeyboardInput {
+                            virtual_keycode: Some(keycode),
+                            state: event::ElementState::Pressed,
+                            ..
+                        },
+                    ..
+                } => {
+                    pressed_keys.insert(keycode);
+                }
+                event::WindowEvent::KeyboardInput {
+                    input:
+                        event::KeyboardInput {
+                            virtual_keycode: Some(keycode),
+                            state: event::ElementState::Released,
+                            ..
+                        },
+                    ..
+                } => {
+                    pressed_keys.remove(&keycode);
+                }
+                event::WindowEvent::RedrawRequested => {
+                    let frame = swap_chain.get_next_texture();
+                    let mut encoder =
+                        device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+
+                    if pressed_keys.contains(&event::VirtualKeyCode::Left) {
+                        globals.matrix.w.x += 0.05;
+                    }
+
+                    if pressed_keys.contains(&event::VirtualKeyCode::Right) {
+                        globals.matrix.w.x -= 0.05;
+                    }
+
+                    if pressed_keys.contains(&event::VirtualKeyCode::Up) {
+                        globals.matrix = globals.matrix * Matrix4::from_angle_y(Rad(-0.05))
+                    }
+
+                    if pressed_keys.contains(&event::VirtualKeyCode::Down) {
+                        globals.matrix = globals.matrix * Matrix4::from_angle_y(Rad(0.05))
+                    }
+
+                    // Create new globals buffer
+                    let new_globals_buffer = device
+                        .create_buffer_mapped(
+                            1,
+                            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                        )
+                        .fill_from_slice(&[globals]);
+                    encoder.copy_buffer_to_buffer(
+                        &new_globals_buffer,
+                        0,
+                        &globals_buffer,
+                        0,
+                        std::mem::size_of::<Globals>() as u64,
+                    );
+
+                    encoder.copy_buffer_to_buffer(
+                        &current_buffer,
+                        0,
+                        &old_buffer,
+                        0,
+                        particles_size,
+                    );
+                    {
+                        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                            color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
+                                attachment: &frame.view,
+                                resolve_target: None,
+                                load_op: wgpu::LoadOp::Clear,
+                                store_op: wgpu::StoreOp::Store,
+                                clear_color: wgpu::Color::BLACK,
+                            }],
+                            depth_stencil_attachment: None,
+                        });
+                        rpass.set_pipeline(&render_pipeline);
+                        rpass.set_bind_group(0, &bind_group, &[]);
+                        rpass.draw(0..particles.len() as u32, 0..1);
+                    }
+
+                    device.get_queue().submit(&[encoder.finish()]);
+                }
                 _ => {}
             },
             event::Event::EventsCleared => {
-                let frame = swap_chain.get_next_texture();
-                let mut encoder =
-                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
-
-                // Create new globals buffer
-                globals.matrix = globals.matrix * Matrix4::from_angle_y(Rad(0.02));
-                let new_globals_buffer = device
-                    .create_buffer_mapped(
-                        1,
-                        wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
-                    )
-                    .fill_from_slice(&[globals]);
-                encoder.copy_buffer_to_buffer(
-                    &new_globals_buffer,
-                    0,
-                    &globals_buffer,
-                    0,
-                    std::mem::size_of::<Globals>() as u64,
-                );
-
-                encoder.copy_buffer_to_buffer(&current_buffer, 0, &old_buffer, 0, particles_size);
-                {
-                    let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                        color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
-                            attachment: &frame.view,
-                            resolve_target: None,
-                            load_op: wgpu::LoadOp::Clear,
-                            store_op: wgpu::StoreOp::Store,
-                            clear_color: wgpu::Color::BLACK,
-                        }],
-                        depth_stencil_attachment: None,
-                    });
-                    rpass.set_pipeline(&render_pipeline);
-                    rpass.set_bind_group(0, &bind_group, &[]);
-                    rpass.draw(0..particles.len() as u32, 0..1);
-                }
-
-                device.get_queue().submit(&[encoder.finish()]);
+                window.request_redraw();
             }
-            _ => (),
+            _ => {}
         }
     });
 }
