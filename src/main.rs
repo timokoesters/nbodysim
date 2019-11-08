@@ -122,39 +122,37 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
     let size = (1080, 1080);
 
     #[cfg(not(feature = "gl"))]
-    let (window, instance, surface) = {
-        use raw_window_handle::HasRawWindowHandle as _;
-
+    let (window, surface) = {
         let window = winit::window::Window::new(&event_loop).unwrap();
 
-        let instance = wgpu::Instance::new();
-        let surface = instance.create_surface(window.raw_window_handle());
+        let surface = wgpu::Surface::create(&window);
 
-        (window, instance, surface)
+        (window, surface)
     };
 
     #[cfg(feature = "gl")]
-    let (window, instance, surface) = {
+    let (window, surface) = {
         let wb = winit::WindowBuilder::new();
         let cb = wgpu::glutin::ContextBuilder::new().with_vsync(true);
         let context = cb.build_windowed(wb, &event_loop).unwrap();
 
         let (context, window) = unsafe { context.make_current().unwrap().split() };
 
-        let instance = wgpu::Instance::new(context);
-        let surface = instance.get_surface();
+        let surface = wgpu::Surface::create(window.raw_window_handle());
 
-        (window, instance, surface)
+        (window, surface)
     };
 
     window.set_inner_size(size.into());
     window.set_resizable(false);
 
-    let adapter = instance.request_adapter(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::LowPower,
-    });
+    let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
+        power_preference: wgpu::PowerPreference::HighPerformance,
+        backends: wgpu::BackendBit::PRIMARY,
+    })
+    .unwrap();
 
-    let mut device = adapter.request_device(&wgpu::DeviceDescriptor {
+    let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
         extensions: wgpu::Extensions {
             anisotropic_filtering: false,
         },
@@ -183,16 +181,19 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
     // Create a new buffer
     let old_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         size: particles_size,
-        usage: wgpu::BufferUsage::MAP_READ
-            | wgpu::BufferUsage::COPY_DST
-            | wgpu::BufferUsage::COPY_SRC,
+        usage: wgpu::BufferUsage::STORAGE
+            | wgpu::BufferUsage::STORAGE_READ
+            | wgpu::BufferUsage::COPY_DST,
     });
 
     // Create a new buffer
     let current_buffer = device
         .create_buffer_mapped(
             particles.len(),
-            wgpu::BufferUsage::MAP_READ | wgpu::BufferUsage::COPY_DST | wgpu::BufferUsage::COPY_SRC,
+            wgpu::BufferUsage::STORAGE
+                | wgpu::BufferUsage::STORAGE_READ
+                | wgpu::BufferUsage::COPY_DST
+                | wgpu::BufferUsage::COPY_SRC,
         )
         .fill_from_slice(&particles);
 
@@ -375,7 +376,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     let new_globals_buffer = device
                         .create_buffer_mapped(
                             1,
-                            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST,
+                            wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_SRC,
                         )
                         .fill_from_slice(&[globals]);
                     encoder.copy_buffer_to_buffer(
@@ -409,7 +410,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                         rpass.draw(0..particles.len() as u32, 0..1);
                     }
 
-                    device.get_queue().submit(&[encoder.finish()]);
+                    queue.submit(&[encoder.finish()]);
                 }
                 _ => {}
             },
