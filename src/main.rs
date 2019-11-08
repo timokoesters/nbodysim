@@ -119,35 +119,38 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
 
     let event_loop = EventLoop::new();
 
-    let size = (1080, 1080);
-
     #[cfg(not(feature = "gl"))]
-    let (window, surface) = {
+    let (window, size, surface) = {
         let window = winit::window::Window::new(&event_loop).unwrap();
+
+        let size = window.inner_size().to_physical(window.hidpi_factor());
 
         let surface = wgpu::Surface::create(&window);
 
-        (window, surface)
+        (window, size, surface)
     };
 
     #[cfg(feature = "gl")]
-    let (window, surface) = {
+    let (window, size, surface) = {
         let wb = winit::WindowBuilder::new();
         let cb = wgpu::glutin::ContextBuilder::new().with_vsync(true);
         let context = cb.build_windowed(wb, &event_loop).unwrap();
 
+        let size = context
+            .window()
+            .get_inner_size()
+            .unwrap()
+            .to_physical(context.window().get_hidpi_factor());
+
         let (context, window) = unsafe { context.make_current().unwrap().split() };
 
-        let surface = wgpu::Surface::create(window.raw_window_handle());
+        let surface = wgpu::Surface::create(&window);
 
-        (window, surface)
+        (window, size, surface)
     };
 
-    window.set_inner_size(size.into());
-    window.set_resizable(false);
-
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::HighPerformance,
+        power_preference: wgpu::PowerPreference::Default,
         backends: wgpu::BackendBit::PRIMARY,
     })
     .unwrap();
@@ -296,16 +299,15 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         alpha_to_coverage_enabled: false,
     });
 
-    let mut swap_chain = device.create_swap_chain(
-        &surface,
-        &wgpu::SwapChainDescriptor {
-            usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-            format: wgpu::TextureFormat::Bgra8UnormSrgb,
-            width: size.0,
-            height: size.1,
-            present_mode: wgpu::PresentMode::Vsync,
-        },
-    );
+    let mut swap_chain_descriptor = wgpu::SwapChainDescriptor {
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        width: size.width.round() as u32,
+        height: size.height.round() as u32,
+        present_mode: wgpu::PresentMode::Vsync,
+    };
+
+    let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 
     let mut pressed_keys = HashSet::new();
 
@@ -313,7 +315,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         *control_flow = if cfg!(feature = "metal-auto-capture") {
             ControlFlow::Exit
         } else {
-            ControlFlow::Wait
+            ControlFlow::Poll
         };
         match event {
             event::Event::WindowEvent { event, .. } => match event {
@@ -350,6 +352,12 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     ..
                 } => {
                     pressed_keys.remove(&keycode);
+                }
+                event::WindowEvent::Resized(size) => {
+                    let physical = size.to_physical(window.hidpi_factor());
+                    swap_chain_descriptor.width = physical.width.round() as u32;
+                    swap_chain_descriptor.height = physical.height.round() as u32;
+                    swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
                 }
                 event::WindowEvent::RedrawRequested => {
                     let frame = swap_chain.get_next_texture();
