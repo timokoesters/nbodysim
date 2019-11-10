@@ -60,14 +60,14 @@ fn randc() -> f32 {
 
 fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle, clockwise: bool) {
     for i in 0..amount {
-        let radius = 4E8 + thread_rng().gen::<f32>() * 12E8;
+        let radius = 4E8 + thread_rng().gen::<f32>() * 3E9;
         let angle = thread_rng().gen::<f32>() * 2.0 * PI;
 
         let mut pos = center.pos;
         pos.x += radius * angle.cos();
         pos.y += radius * angle.sin();
 
-        let mass = 0.0;
+        let mass = 0E27;
 
         // Fg = Fg
         // G * m1 * m2 / r^2 = m1 * v^2 / r
@@ -89,26 +89,26 @@ fn main() {
     let mut particles = Vec::new();
 
     let center = Particle::new(
-        Vector3::new(-2E9, 0.0, 0.0),
-        Vector3::new(0.0, -5E4, 0.0),
+        Vector3::new(0.0, 4E9, 5E9),
+        Vector3::new(0.0, 0.0, -5E4),
         1E30,
     );
     particles.push(center);
-    generate_galaxy(&mut particles, 10000, &center, true);
+    generate_galaxy(&mut particles, 8000, &center, true);
 
     let center2 = Particle::new(
-        Vector3::new(2E9, 0.0, 5E9),
-        Vector3::new(0.0, 5E4, 0.0),
-        1E30,
+        Vector3::new(0.0, -4E9, -5E9),
+        Vector3::new(0.0, 0.0, 5E4),
+        3E30,
     );
     particles.push(center2);
-    generate_galaxy(&mut particles, 10000, &center2, false);
+    generate_galaxy(&mut particles, 8000, &center2, false);
 
     let globals = Globals {
         particles: particles.len() as u32,
         matrix: Matrix4::from_translation(Vector3::new(0.0, 0.0, 0.0)),
-        camera_pos: Point3::new(1.0, 0.0, 0.0),
-        delta: 20.0,
+        camera_pos: Point3::new(2E10, 0.0, 0.0),
+        delta: 0.0,
         _p: [0.0; 3],
     };
 
@@ -326,13 +326,13 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
     let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 
     let mut camera_dir = -globals.camera_pos.to_vec();
-    camera_dir.normalize();
+    camera_dir = camera_dir.normalize();
     globals.matrix = build_matrix(globals.camera_pos, camera_dir);
 
     let mut pressed_keys = HashSet::new();
 
     let mut right = camera_dir.cross(Vector3::new(0.0, 1.0, 0.0));
-    right.normalize();
+    right = right.normalize();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = if cfg!(feature = "metal-auto-capture") {
@@ -445,7 +445,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
 
                     camera_dir.normalize();
                     right = camera_dir.cross(Vector3::new(0.0, 1.0, 0.0));
-                    right.normalize();
+                    right = right.normalize();
 
                     if pressed_keys.contains(&event::VirtualKeyCode::A) {
                         globals.camera_pos += -right * 3E7;
