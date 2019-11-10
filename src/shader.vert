@@ -16,6 +16,7 @@ struct Particle {
 
 layout(set = 0, binding = 0) uniform GlobalsBuffer {
     mat4 matrix;
+    vec3 camera_pos;
     uint particles;
     float zoom;
     float delta;
@@ -44,7 +45,9 @@ void main() {
     // Update
     data[i].pos += data_old[i].vel * delta;
     vec3 real_pos = data_old[i].pos * zoom;
-    gl_Position = matrix * vec4(real_pos.xyz, 1.0);
+
+    // Render
+    gl_Position = matrix * vec4(real_pos.xyz - camera_pos, 1.0);
 
     if(data_old[i].mass > 0.0) {
         gl_PointSize = sqrt(data_old[i].mass * 2E-27);
@@ -62,6 +65,7 @@ void main() {
 
     // Gravity
     for(int j = 0; j < particles; j++) {
+        if(j == i || data_old[j].mass == 0) { continue; }
         vec3 diff = data_old[i].pos - data_old[j].pos;
         float d2 = pow(length(diff), 2);
         if(d2 < MIN_DISTANCE2) {
@@ -70,7 +74,6 @@ void main() {
             }
             continue;
         }
-        if(j == i || data_old[j].mass == 0) { continue; }
         vec3 dir = normalize(diff);
 
         temp += dir * data_old[j].mass / d2;

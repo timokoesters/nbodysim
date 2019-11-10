@@ -1,4 +1,5 @@
-use cgmath::{Matrix4, Rad, Vector3};
+use cgmath::prelude::*;
+use cgmath::{Deg, Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3};
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::f32::consts::PI;
@@ -23,6 +24,7 @@ struct Particle {
 #[repr(C)]
 struct Globals {
     matrix: Matrix4<f32>,
+    camera_pos: Point3<f32>,
     particles: u32, // 0
     zoom: f32,
     delta: f32,
@@ -66,7 +68,7 @@ fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle
         pos.x += radius * angle.cos();
         pos.y += radius * angle.sin();
 
-        let mass = 1E27;
+        let mass = 0.0;
 
         // Fg = Fg
         // G * m1 * m2 / r^2 = m1 * v^2 / r
@@ -93,25 +95,36 @@ fn main() {
         1E30,
     );
     particles.push(center);
-    generate_galaxy(&mut particles, 500, &center, true);
+    generate_galaxy(&mut particles, 5000, &center, true);
 
     let center2 = Particle::new(
-        Vector3::new(2E9, 0.0, 1E9),
+        Vector3::new(2E9, 0.0, 5E9),
         Vector3::new(0.0, 5E4, 0.0),
         1E30,
     );
     particles.push(center2);
-    generate_galaxy(&mut particles, 300, &center2, false);
+    generate_galaxy(&mut particles, 3000, &center2, false);
 
     let globals = Globals {
         particles: particles.len() as u32,
-        matrix: Matrix4::from_translation(Vector3::new(0.0, 0.0, 0.5)),
+        matrix: Matrix4::from_translation(Vector3::new(0.0, 0.0, 0.0)),
+        camera_pos: Point3::new(1.0, 0.0, 0.0),
         zoom: 1E-10,
         delta: 20.0,
         _p: 0.0,
     };
 
     run(globals, particles);
+}
+
+fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>) -> Matrix4<f32> {
+    Matrix4::from(PerspectiveFov {
+        fovy: Rad(PI / 2.0),
+        aspect: 1.0,
+        near: 0.01,
+        far: 10000.0,
+    }) * Matrix4::look_at_dir(pos, dir, Vector3::new(0.0, 1.0, 0.0))
+        * Matrix4::from_translation(pos.to_vec())
 }
 
 fn run(mut globals: Globals, particles: Vec<Particle>) {
@@ -148,6 +161,11 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
 
         (window, size, surface)
     };
+
+    // Try to grab mouse
+    let _ = window.set_cursor_grab(true);
+
+    window.set_cursor_visible(false);
 
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
         power_preference: wgpu::PowerPreference::Default,
@@ -309,7 +327,14 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
 
     let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 
+    let mut camera_dir = -globals.camera_pos.to_vec();
+    camera_dir.normalize();
+    globals.matrix = build_matrix(globals.camera_pos, camera_dir);
+
     let mut pressed_keys = HashSet::new();
+
+    let mut right = camera_dir.cross(Vector3::new(0.0, 1.0, 0.0));
+    right.normalize();
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = if cfg!(feature = "metal-auto-capture") {
@@ -318,19 +343,24 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
             ControlFlow::Poll
         };
         match event {
+            // Move mouse
+            event::Event::DeviceEvent {
+                event: event::DeviceEvent::MouseMotion { delta },
+                ..
+            } => {
+                camera_dir = Quaternion::from_angle_y(Rad(-delta.0 as f32 / 1000.0))
+                    .rotate_vector(camera_dir);
+                camera_dir = Quaternion::from_axis_angle(right, Rad(delta.1 as f32 / 1000.0))
+                    .rotate_vector(camera_dir);
+            }
+
             event::Event::WindowEvent { event, .. } => match event {
-                event::WindowEvent::KeyboardInput {
-                    input:
-                        event::KeyboardInput {
-                            virtual_keycode: Some(event::VirtualKeyCode::Escape),
-                            state: event::ElementState::Pressed,
-                            ..
-                        },
-                    ..
-                }
-                | event::WindowEvent::CloseRequested => {
+                // Close window
+                event::WindowEvent::CloseRequested => {
                     *control_flow = ControlFlow::Exit;
                 }
+
+                // Keyboard input
                 event::WindowEvent::KeyboardInput {
                     input:
                         event::KeyboardInput {
@@ -340,8 +370,47 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                         },
                     ..
                 } => {
+                    match keycode {
+                        // Exit
+                        event::VirtualKeyCode::Escape => {
+                            *control_flow = ControlFlow::Exit;
+                        }
+                        event::VirtualKeyCode::Key0 => {
+                            globals.delta = 0.0;
+                        }
+                        event::VirtualKeyCode::Key1 => {
+                            globals.delta = 10.0;
+                        }
+                        event::VirtualKeyCode::Key2 => {
+                            globals.delta = 20.0;
+                        }
+                        event::VirtualKeyCode::Key3 => {
+                            globals.delta = 40.0;
+                        }
+                        event::VirtualKeyCode::Key4 => {
+                            globals.delta = 80.0;
+                        }
+                        event::VirtualKeyCode::Key5 => {
+                            globals.delta = 160.0;
+                        }
+                        event::VirtualKeyCode::Key6 => {
+                            globals.delta = 320.0;
+                        }
+                        event::VirtualKeyCode::Key7 => {
+                            globals.delta = 640.0;
+                        }
+                        event::VirtualKeyCode::Key8 => {
+                            globals.delta = 1280.0;
+                        }
+                        event::VirtualKeyCode::Key9 => {
+                            globals.delta = 2560.0;
+                        }
+                        _ => {}
+                    }
                     pressed_keys.insert(keycode);
                 }
+
+                // Release key
                 event::WindowEvent::KeyboardInput {
                     input:
                         event::KeyboardInput {
@@ -353,32 +422,58 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                 } => {
                     pressed_keys.remove(&keycode);
                 }
+
+                // Mouse scroll
+                event::WindowEvent::MouseWheel { delta, .. } => {
+                    //globals.matrix.w.z += match delta {
+                    //event::MouseScrollDelta::LineDelta(rows, _) => rows as f32 / 1000.0,
+                    //event::MouseScrollDelta::PixelDelta(pos) => pos.y as f32 / 1000.0,
+                    //};
+                }
+
+                // Resize window
                 event::WindowEvent::Resized(size) => {
                     let physical = size.to_physical(window.hidpi_factor());
                     swap_chain_descriptor.width = physical.width.round() as u32;
                     swap_chain_descriptor.height = physical.height.round() as u32;
                     swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
                 }
+
+                // Redraw
                 event::WindowEvent::RedrawRequested => {
                     let frame = swap_chain.get_next_texture();
                     let mut encoder =
                         device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
 
-                    if pressed_keys.contains(&event::VirtualKeyCode::Left) {
-                        globals.matrix.w.x += 0.05;
+                    camera_dir.normalize();
+                    right = camera_dir.cross(Vector3::new(0.0, 1.0, 0.0));
+                    right.normalize();
+
+                    if pressed_keys.contains(&event::VirtualKeyCode::A) {
+                        globals.camera_pos += -right * 0.003;
                     }
 
-                    if pressed_keys.contains(&event::VirtualKeyCode::Right) {
-                        globals.matrix.w.x -= 0.05;
+                    if pressed_keys.contains(&event::VirtualKeyCode::D) {
+                        globals.camera_pos += right * 0.003;
                     }
 
-                    if pressed_keys.contains(&event::VirtualKeyCode::Up) {
-                        globals.matrix = globals.matrix * Matrix4::from_angle_y(Rad(-0.05))
+                    if pressed_keys.contains(&event::VirtualKeyCode::W) {
+                        globals.camera_pos += camera_dir * 0.003;
                     }
 
-                    if pressed_keys.contains(&event::VirtualKeyCode::Down) {
-                        globals.matrix = globals.matrix * Matrix4::from_angle_y(Rad(0.05))
+                    if pressed_keys.contains(&event::VirtualKeyCode::S) {
+                        globals.camera_pos += -camera_dir * 0.003;
                     }
+
+                    if pressed_keys.contains(&event::VirtualKeyCode::Space) {
+                        globals.camera_pos.y -= 0.003;
+                    }
+
+                    if pressed_keys.contains(&event::VirtualKeyCode::LShift) {
+                        globals.camera_pos.y += 0.003;
+                    }
+
+                    globals.matrix = build_matrix(globals.camera_pos, camera_dir);
 
                     // Create new globals buffer
                     let new_globals_buffer = device
@@ -422,6 +517,8 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                 }
                 _ => {}
             },
+
+            // No more events
             event::Event::EventsCleared => {
                 window.request_redraw();
             }
