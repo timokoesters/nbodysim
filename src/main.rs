@@ -1,5 +1,5 @@
 use cgmath::prelude::*;
-use cgmath::{Deg, Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3};
+use cgmath::{Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3};
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::f32::consts::PI;
@@ -39,27 +39,10 @@ impl Particle {
             mass,
         }
     }
-    fn random(mass_distribution: impl Distribution<f32>) -> Self {
-        Self {
-            pos: Vector3::new(
-                if thread_rng().gen() { -3E9 } else { 3E9 } + randc() * 1E9,
-                randc() * 3E8,
-                0.0,
-            ),
-            _p: 0.0,
-            vel: Vector3::new(randc() * 1E3, randc() * 7E5, 0.0),
-            mass: (thread_rng().sample(mass_distribution) + 1.0) * 2E26,
-        }
-    }
-}
-
-// Returns a random coordinate from -1 to 1
-fn randc() -> f32 {
-    (thread_rng().gen::<f32>() - 0.5) * 2.0
 }
 
 fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle, clockwise: bool) {
-    for i in 0..amount {
+    for _ in 0..amount {
         let radius = 4E8 + thread_rng().gen::<f32>() * 3E9;
         let angle = thread_rng().gen::<f32>() * 2.0 * PI;
 
@@ -84,8 +67,6 @@ fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle
 }
 
 fn main() {
-    let mass_distribution = rand_distr::Exp::new(0.4).unwrap();
-
     let mut particles = Vec::new();
 
     let center = Particle::new(
@@ -115,10 +96,10 @@ fn main() {
     run(globals, particles);
 }
 
-fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>) -> Matrix4<f32> {
+fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>, aspect: f32) -> Matrix4<f32> {
     Matrix4::from(PerspectiveFov {
         fovy: Rad(PI / 2.0),
-        aspect: 1.0,
+        aspect,
         near: 0.01,
         far: 1E25,
     }) * Matrix4::look_at_dir(pos, dir, Vector3::new(0.0, 1.0, 0.0))
@@ -131,7 +112,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
     let event_loop = EventLoop::new();
 
     #[cfg(not(feature = "gl"))]
-    let (window, size, surface) = {
+    let (window, mut size, surface) = {
         let window = winit::window::Window::new(&event_loop).unwrap();
 
         let size = window.inner_size().to_physical(window.hidpi_factor());
@@ -142,7 +123,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
     };
 
     #[cfg(feature = "gl")]
-    let (window, size, surface) = {
+    let (window, mut size, surface) = {
         let wb = winit::WindowBuilder::new();
         let cb = wgpu::glutin::ContextBuilder::new().with_vsync(true);
         let context = cb.build_windowed(wb, &event_loop).unwrap();
@@ -327,7 +308,12 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
 
     let mut camera_dir = -globals.camera_pos.to_vec();
     camera_dir = camera_dir.normalize();
-    globals.matrix = build_matrix(globals.camera_pos, camera_dir);
+    globals.matrix = build_matrix(
+        globals.camera_pos,
+        camera_dir,
+        size.width as f32 / size.height as f32,
+    );
+    let mut fly_speed = 3E7;
 
     let mut pressed_keys = HashSet::new();
 
@@ -346,9 +332,9 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                 event: event::DeviceEvent::MouseMotion { delta },
                 ..
             } => {
-                camera_dir = Quaternion::from_angle_y(Rad(-delta.0 as f32 / 1000.0))
+                camera_dir = Quaternion::from_angle_y(Rad(-delta.0 as f32 / 300.0))
                     .rotate_vector(camera_dir);
-                camera_dir = Quaternion::from_axis_angle(right, Rad(delta.1 as f32 / 1000.0))
+                camera_dir = Quaternion::from_axis_angle(right, Rad(delta.1 as f32 / 300.0))
                     .rotate_vector(camera_dir);
             }
 
@@ -403,6 +389,15 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                         event::VirtualKeyCode::Key9 => {
                             globals.delta = 2560.0;
                         }
+                        event::VirtualKeyCode::F11 => {
+                            if window.fullscreen().is_some() {
+                                window.set_fullscreen(None);
+                            } else {
+                                window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(
+                                    window.primary_monitor(),
+                                )));
+                            }
+                        }
                         _ => {}
                     }
                     pressed_keys.insert(keycode);
@@ -423,15 +418,21 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
 
                 // Mouse scroll
                 event::WindowEvent::MouseWheel { delta, .. } => {
-                    //globals.matrix.w.z += match delta {
-                    //event::MouseScrollDelta::LineDelta(rows, _) => rows as f32 / 1000.0,
-                    //event::MouseScrollDelta::PixelDelta(pos) => pos.y as f32 / 1000.0,
-                    //};
+                    fly_speed *= (1.0
+                        + (match delta {
+                            event::MouseScrollDelta::LineDelta(_, c) => c as f32 / 8.0,
+                            event::MouseScrollDelta::PixelDelta(pos) => pos.y as f32 / 8.0,
+                        }))
+                    .min(4.0)
+                    .max(0.25);
+
+                    fly_speed = fly_speed.min(1E10).max(1E6);
                 }
 
                 // Resize window
-                event::WindowEvent::Resized(size) => {
-                    let physical = size.to_physical(window.hidpi_factor());
+                event::WindowEvent::Resized(new_size) => {
+                    let physical = new_size.to_physical(window.hidpi_factor());
+                    size = physical;
                     swap_chain_descriptor.width = physical.width.round() as u32;
                     swap_chain_descriptor.height = physical.height.round() as u32;
                     swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
@@ -448,30 +449,34 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     right = right.normalize();
 
                     if pressed_keys.contains(&event::VirtualKeyCode::A) {
-                        globals.camera_pos += -right * 3E7;
+                        globals.camera_pos += -right * fly_speed;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::D) {
-                        globals.camera_pos += right * 3E7;
+                        globals.camera_pos += right * fly_speed;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::W) {
-                        globals.camera_pos += camera_dir * 3E7;
+                        globals.camera_pos += camera_dir * fly_speed;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::S) {
-                        globals.camera_pos += -camera_dir * 3E7;
+                        globals.camera_pos += -camera_dir * fly_speed;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::Space) {
-                        globals.camera_pos.y -= 3E7;
+                        globals.camera_pos.y -= fly_speed;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::LShift) {
-                        globals.camera_pos.y += 3E7;
+                        globals.camera_pos.y += fly_speed;
                     }
 
-                    globals.matrix = build_matrix(globals.camera_pos, camera_dir);
+                    globals.matrix = build_matrix(
+                        globals.camera_pos,
+                        camera_dir,
+                        size.width as f32 / size.height as f32,
+                    );
 
                     // Create new globals buffer
                     let new_globals_buffer = device
