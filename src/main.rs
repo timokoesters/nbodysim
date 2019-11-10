@@ -23,12 +23,11 @@ struct Particle {
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct Globals {
-    matrix: Matrix4<f32>,
-    camera_pos: Point3<f32>,
-    particles: u32, // 0
-    zoom: f32,
-    delta: f32,
-    _p: f32,
+    matrix: Matrix4<f32>,    // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+    camera_pos: Point3<f32>, // 16, 17, 18
+    particles: u32,          // 19
+    delta: f32,              // 20
+    _p: [f32; 3],            // 21, 22, 23
 }
 
 impl Particle {
@@ -61,7 +60,7 @@ fn randc() -> f32 {
 
 fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle, clockwise: bool) {
     for i in 0..amount {
-        let radius = 7E8 + thread_rng().gen::<f32>() * 12E8;
+        let radius = 4E8 + thread_rng().gen::<f32>() * 12E8;
         let angle = thread_rng().gen::<f32>() * 2.0 * PI;
 
         let mut pos = center.pos;
@@ -95,7 +94,7 @@ fn main() {
         1E30,
     );
     particles.push(center);
-    generate_galaxy(&mut particles, 5000, &center, true);
+    generate_galaxy(&mut particles, 10000, &center, true);
 
     let center2 = Particle::new(
         Vector3::new(2E9, 0.0, 5E9),
@@ -103,15 +102,14 @@ fn main() {
         1E30,
     );
     particles.push(center2);
-    generate_galaxy(&mut particles, 3000, &center2, false);
+    generate_galaxy(&mut particles, 10000, &center2, false);
 
     let globals = Globals {
         particles: particles.len() as u32,
         matrix: Matrix4::from_translation(Vector3::new(0.0, 0.0, 0.0)),
         camera_pos: Point3::new(1.0, 0.0, 0.0),
-        zoom: 1E-10,
         delta: 20.0,
-        _p: 0.0,
+        _p: [0.0; 3],
     };
 
     run(globals, particles);
@@ -122,7 +120,7 @@ fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>) -> Matrix4<f32> {
         fovy: Rad(PI / 2.0),
         aspect: 1.0,
         near: 0.01,
-        far: 10000.0,
+        far: 1E25,
     }) * Matrix4::look_at_dir(pos, dir, Vector3::new(0.0, 1.0, 0.0))
         * Matrix4::from_translation(pos.to_vec())
 }
@@ -450,27 +448,27 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     right.normalize();
 
                     if pressed_keys.contains(&event::VirtualKeyCode::A) {
-                        globals.camera_pos += -right * 0.003;
+                        globals.camera_pos += -right * 3E7;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::D) {
-                        globals.camera_pos += right * 0.003;
+                        globals.camera_pos += right * 3E7;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::W) {
-                        globals.camera_pos += camera_dir * 0.003;
+                        globals.camera_pos += camera_dir * 3E7;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::S) {
-                        globals.camera_pos += -camera_dir * 0.003;
+                        globals.camera_pos += -camera_dir * 3E7;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::Space) {
-                        globals.camera_pos.y -= 0.003;
+                        globals.camera_pos.y -= 3E7;
                     }
 
                     if pressed_keys.contains(&event::VirtualKeyCode::LShift) {
-                        globals.camera_pos.y += 0.003;
+                        globals.camera_pos.y += 3E7;
                     }
 
                     globals.matrix = build_matrix(globals.camera_pos, camera_dir);
