@@ -74,16 +74,17 @@ fn main() {
         Vector3::new(0.0, 0.0, -5E4),
         1E30,
     );
-    particles.push(center);
-    generate_galaxy(&mut particles, 8000, &center, true);
-
     let center2 = Particle::new(
         Vector3::new(0.0, -4E9, -5E9),
         Vector3::new(0.0, 0.0, 5E4),
         3E30,
     );
+
+    particles.push(center);
     particles.push(center2);
-    generate_galaxy(&mut particles, 8000, &center2, false);
+
+    generate_galaxy(&mut particles, 800000, &center, true);
+    generate_galaxy(&mut particles, 800000, &center2, false);
 
     let globals = Globals {
         particles: particles.len() as u32,

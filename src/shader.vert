@@ -54,7 +54,8 @@ void main() {
     if(delta > 0.0) {
         vec3 temp = vec3(0.0, 0.0, 0.0);
         for(int j = 0; j < particles; j++) {
-            if(j == i || data_old[j].mass == 0) { continue; }
+            if(j == i) { continue; }
+            if(data_old[j].mass == 0) { break; }
 
             vec3 diff = data_old[i].pos - data_old[j].pos;
 
