@@ -43,7 +43,7 @@ impl Particle {
 
 fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle, clockwise: bool) {
     for _ in 0..amount {
-        let radius = 4E8 + thread_rng().gen::<f32>() * 3E9;
+        let radius = 4E8 + (thread_rng().gen::<f32>().powf(2.0)) * 3E9;
         let angle = thread_rng().gen::<f32>() * 2.0 * PI;
 
         let mut pos = center.pos;
@@ -70,21 +70,21 @@ fn main() {
     let mut particles = Vec::new();
 
     let center = Particle::new(
-        Vector3::new(0.0, 4E9, 5E9),
-        Vector3::new(0.0, 0.0, -5E4),
+        Vector3::new(0.0, 5E8, 5E9),
+        Vector3::new(0.0, 0.0, -1E5),
         1E30,
     );
     let center2 = Particle::new(
-        Vector3::new(0.0, -4E9, -5E9),
-        Vector3::new(0.0, 0.0, 5E4),
-        3E30,
+        Vector3::new(0.0, -5E8, -5E9),
+        Vector3::new(0.0, 0.0, 1E5),
+        1E30,
     );
 
     particles.push(center);
     particles.push(center2);
 
-    generate_galaxy(&mut particles, 800000, &center, true);
-    generate_galaxy(&mut particles, 800000, &center2, false);
+    generate_galaxy(&mut particles, 10_000, &center, true);
+    generate_galaxy(&mut particles, 10_000, &center2, false);
 
     let globals = Globals {
         particles: particles.len() as u32,
@@ -422,7 +422,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     fly_speed *= (1.0
                         + (match delta {
                             event::MouseScrollDelta::LineDelta(_, c) => c as f32 / 8.0,
-                            event::MouseScrollDelta::PixelDelta(pos) => pos.y as f32 / 8.0,
+                            event::MouseScrollDelta::PixelDelta(pos) => pos.y as f32 / 64.0,
                         }))
                     .min(4.0)
                     .max(0.25);
@@ -508,7 +508,12 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                                 resolve_target: None,
                                 load_op: wgpu::LoadOp::Clear,
                                 store_op: wgpu::StoreOp::Store,
-                                clear_color: wgpu::Color::BLACK,
+                                clear_color: wgpu::Color {
+                                    r: 0.02,
+                                    g: 0.02,
+                                    b: 0.02,
+                                    a: 1.0,
+                                },
                             }],
                             depth_stencil_attachment: None,
                         });

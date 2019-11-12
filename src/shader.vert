@@ -78,8 +78,12 @@ void main() {
     // Render
     gl_Position = matrix * vec4(data[i].pos - camera_pos, 1.0);
 
-    gl_PointSize = clamp(data_old[i].mass * 4E-29, 1, 10);
+    gl_PointSize = clamp(data[i].mass * 4E-29, 1.5, 20);
 
-    float red = clamp((length2(data[i].vel)) * 1E-12, 0.0, 1.0);
-    fragColor = vec3(red, 0.0, 1-red);
+    if(data[i].mass > 1E20) {
+        fragColor = vec3(0.0, 0.0, 0.0);
+    } else {
+        float red = clamp((length2(data[i].vel)) * 1E-12, 0.3, 1.0);
+        fragColor = vec3(red, 0.3, max(1-red, 0.3));
+    }
 }
