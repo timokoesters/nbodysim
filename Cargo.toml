@@ -1,5 +1,5 @@
 [package]
-name = "wgpu-project"
+name = "nbodysim"
 version = "0.1.0"
 authors = ["timokoesters <timo@koesters.xyz>"]
 edition = "2018"

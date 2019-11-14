@@ -14,8 +14,9 @@ const float LIGHT_SPEED2 = pow(LIGHT_SPEED, 2);
 
 struct Particle {
     vec3 pos; // 0, 1, 2
+    float radius; // 7
     vec3 vel; // 4, 5, 6
-    float mass; // 7
+    double mass; // 7, 8
 };
 
 layout(set = 0, binding = 0) uniform GlobalsBuffer {
@@ -52,7 +53,7 @@ void main() {
 
     // Gravity
     if(delta > 0.0) {
-        vec3 temp = vec3(0.0, 0.0, 0.0);
+        dvec3 temp = dvec3(0.0, 0.0, 0.0);
         for(int j = 0; j < particles; j++) {
             if(j == i) { continue; }
             if(data_old[j].mass == 0) { break; }
@@ -66,7 +67,7 @@ void main() {
             temp += dir * data_old[j].mass / d2;
         }
 
-        data[i].vel -= temp * G * delta;
+        data[i].vel -= vec3(temp * G * delta);
         if(length2(data[i].vel) > LIGHT_SPEED2) {
             data[i].vel = normalize(data[i].vel) * LIGHT_SPEED;
         }
@@ -78,7 +79,7 @@ void main() {
     // Render
     gl_Position = matrix * vec4(data[i].pos - camera_pos, 1.0);
 
-    gl_PointSize = clamp(data[i].mass * 4E-29, 1.5, 20);
+    gl_PointSize = float(clamp(data[i].mass * 4E-29, 1.5, 20));
 
     if(data[i].mass > 1E20) {
         fragColor = vec3(0.0, 0.0, 0.0);

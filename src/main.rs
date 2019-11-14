@@ -8,16 +8,19 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
 };
 
-const G: f32 = 6.67408E-11;
+const G: f64 = 6.67408E-11;
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct Particle {
-    pos: Vector3<f32>, // 0, 1, 2
-    _p: f32,           // 3
+    pos: Vector3<f32>, // 4, 8, 12
+    radius: f32,       // 16
 
-    vel: Vector3<f32>, // 4, 5, 6
-    mass: f32,         // 7
+    vel: Vector3<f32>, // 4, 8, 12
+    _p: f32,           // 16
+
+    mass: f64,     // 4, 8
+    _p2: [f32; 2], // 12, 16
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -31,12 +34,19 @@ struct Globals {
 }
 
 impl Particle {
-    fn new(pos: Vector3<f32>, vel: Vector3<f32>, mass: f32) -> Self {
+    fn new(pos: Vector3<f32>, vel: Vector3<f32>, mass: f64, density: f64) -> Self {
         Self {
             pos,
-            _p: 0.0,
+            // V = 4/3*pi*r^3
+            // V = m/ d
+            // 4/3*pi*r^3 = m / d
+            // r^3 = 3*m / (4*d*pi)
+            // r = cbrt(3*m / (4*d*pi))
+            radius: (3.0 * mass / (4.0 * density * PI as f64)).cbrt() as f32,
             vel,
             mass,
+            _p: 0E30,
+            _p2: [0E30, 0E30],
         }
     }
 }
@@ -51,18 +61,19 @@ fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle
         pos.y += radius * angle.sin();
 
         let mass = 0E27;
+        let density = 1.408;
 
         // Fg = Fg
         // G * m1 * m2 / r^2 = m1 * v^2 / r
         // sqrt(G * m2 / r) = v
 
-        let speed = (G * center.mass / radius).sqrt();
+        let speed = (G * center.mass / radius as f64).sqrt() as f32;
 
         let mut vel = center.vel;
         vel.x += speed * angle.sin() * if clockwise { -1.0 } else { 1.0 };
         vel.y += speed * angle.cos() * if clockwise { 1.0 } else { -1.0 };
 
-        particles.push(Particle::new(pos, vel, mass));
+        particles.push(Particle::new(pos, vel, mass, density));
     }
 }
 
@@ -70,14 +81,16 @@ fn main() {
     let mut particles = Vec::new();
 
     let center = Particle::new(
-        Vector3::new(0.0, 5E8, 5E9),
-        Vector3::new(0.0, 0.0, -1E5),
+        Vector3::new(0.0, 1.5E9, 2E9),
+        Vector3::new(0.0, 0.0, -5E4),
         1E30,
+        1.0,
     );
     let center2 = Particle::new(
-        Vector3::new(0.0, -5E8, -5E9),
-        Vector3::new(0.0, 0.0, 1E5),
+        Vector3::new(0.0, -1.5E9, -2E9),
+        Vector3::new(0.0, 0.0, 5E4),
         1E30,
+        1.0,
     );
 
     particles.push(center);
