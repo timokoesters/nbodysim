@@ -38,7 +38,7 @@ float rand(vec3 co) {
     return (fract(sin(dot(co.xyz, vec3(32.3485, 11.8743, 50.463))) * 48510.7134) - 0.5) * 2.0;
 }
 
-float length2(vec3 v) {
+double length2(dvec3 v) {
     return v.x * v.x + v.y * v.y + v.z * v.z;
 }
 
@@ -58,13 +58,10 @@ void main() {
             if(j == i) { continue; }
             if(data_old[j].mass == 0) { break; }
 
-            vec3 diff = data_old[i].pos - data_old[j].pos;
+            dvec3 diff = data_old[i].pos - data_old[j].pos;
 
-            float d2 = length2(diff);
-            if(d2 < MIN_DISTANCE2) { continue; }
-
-            vec3 dir = normalize(diff);
-            temp += dir * data_old[j].mass / d2;
+            dvec3 dir = normalize(diff);
+            temp += dir * data_old[j].mass / length2(diff);
         }
 
         data[i].vel -= vec3(temp * G * delta);
@@ -79,12 +76,12 @@ void main() {
     // Render
     gl_Position = matrix * vec4(data[i].pos - camera_pos, 1.0);
 
-    gl_PointSize = float(clamp(data[i].mass * 4E-29, 1.5, 20));
+    gl_PointSize = float(clamp(data[i].mass * 4E-35, 1.5, 20));
 
-    if(data[i].mass > 1E20) {
+    if(data[i].mass > 1E35) {
         fragColor = vec3(0.0, 0.0, 0.0);
     } else {
-        float red = clamp((length2(data[i].vel)) * 1E-12, 0.3, 1.0);
+        float red = float(clamp((length2(data[i].vel)) * 1E-12, 0.3, 1.0));
         fragColor = vec3(red, 0.3, max(1-red, 0.3));
     }
 }

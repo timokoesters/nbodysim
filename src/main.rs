@@ -9,6 +9,9 @@ use winit::{
 };
 
 const G: f64 = 6.67408E-11;
+const SOLAR_MASS: f64 = 1.98847E30;
+const LIGHT_YEAR: f32 = 9.4607E15;
+const LIGHT_SPEED: f32 = 299792458.0;
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
@@ -53,14 +56,14 @@ impl Particle {
 
 fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle, clockwise: bool) {
     for _ in 0..amount {
-        let radius = 4E8 + (thread_rng().gen::<f32>().powf(2.0)) * 3E9;
+        let radius = 1E3 * LIGHT_YEAR + (thread_rng().gen::<f32>().powf(2.0)) * 50E3 * LIGHT_YEAR;
         let angle = thread_rng().gen::<f32>() * 2.0 * PI;
 
         let mut pos = center.pos;
         pos.x += radius * angle.cos();
         pos.y += radius * angle.sin();
 
-        let mass = 0E27;
+        let mass = 0E30;
         let density = 1.408;
 
         // Fg = Fg
@@ -81,28 +84,28 @@ fn main() {
     let mut particles = Vec::new();
 
     let center = Particle::new(
-        Vector3::new(0.0, 1.5E9, 2E9),
-        Vector3::new(0.0, 0.0, -5E4),
-        1E30,
+        Vector3::new(0.0, 3E4 * LIGHT_YEAR, 1E5 * LIGHT_YEAR),
+        Vector3::new(0.0, 0.0, -0.000001 * LIGHT_SPEED),
+        10E6 * SOLAR_MASS,
         1.0,
     );
     let center2 = Particle::new(
-        Vector3::new(0.0, -1.5E9, -2E9),
-        Vector3::new(0.0, 0.0, 5E4),
-        1E30,
+        Vector3::new(0.0, -3E4 * LIGHT_YEAR, -1E5 * LIGHT_YEAR),
+        Vector3::new(0.0, 0.0, 0.000001 * LIGHT_SPEED),
+        10E6 * SOLAR_MASS,
         1.0,
     );
 
     particles.push(center);
     particles.push(center2);
 
-    generate_galaxy(&mut particles, 10_000, &center, true);
-    generate_galaxy(&mut particles, 10_000, &center2, false);
+    generate_galaxy(&mut particles, 100_000, &center, true);
+    generate_galaxy(&mut particles, 100_000, &center2, false);
 
     let globals = Globals {
         particles: particles.len() as u32,
         matrix: Matrix4::from_translation(Vector3::new(0.0, 0.0, 0.0)),
-        camera_pos: Point3::new(2E10, 0.0, 0.0),
+        camera_pos: Point3::new(1.0 * LIGHT_YEAR, 0.0, 0.0),
         delta: 0.0,
         _p: [0.0; 3],
     };
@@ -115,7 +118,7 @@ fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>, aspect: f32) -> Matrix4<f32
         fovy: Rad(PI / 2.0),
         aspect,
         near: 0.01,
-        far: 1E25,
+        far: 1E5 * LIGHT_YEAR,
     }) * Matrix4::look_at_dir(pos, dir, Vector3::new(0.0, 1.0, 0.0))
         * Matrix4::from_translation(pos.to_vec())
 }
@@ -327,7 +330,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         camera_dir,
         size.width as f32 / size.height as f32,
     );
-    let mut fly_speed = 3E7;
+    let mut fly_speed = LIGHT_YEAR;
 
     let mut pressed_keys = HashSet::new();
 
@@ -377,31 +380,31 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                             globals.delta = 0.0;
                         }
                         event::VirtualKeyCode::Key1 => {
-                            globals.delta = 10.0;
+                            globals.delta = 1E13;
                         }
                         event::VirtualKeyCode::Key2 => {
-                            globals.delta = 20.0;
+                            globals.delta = 2E13;
                         }
                         event::VirtualKeyCode::Key3 => {
-                            globals.delta = 40.0;
+                            globals.delta = 4E13;
                         }
                         event::VirtualKeyCode::Key4 => {
-                            globals.delta = 80.0;
+                            globals.delta = 8E13;
                         }
                         event::VirtualKeyCode::Key5 => {
-                            globals.delta = 160.0;
+                            globals.delta = 16E13;
                         }
                         event::VirtualKeyCode::Key6 => {
-                            globals.delta = 320.0;
+                            globals.delta = 32E13;
                         }
                         event::VirtualKeyCode::Key7 => {
-                            globals.delta = 640.0;
+                            globals.delta = 64E13;
                         }
                         event::VirtualKeyCode::Key8 => {
-                            globals.delta = 1280.0;
+                            globals.delta = 128E13;
                         }
                         event::VirtualKeyCode::Key9 => {
-                            globals.delta = 2560.0;
+                            globals.delta = 256E13;
                         }
                         event::VirtualKeyCode::F11 => {
                             if window.fullscreen().is_some() {
@@ -440,7 +443,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     .min(4.0)
                     .max(0.25);
 
-                    fly_speed = fly_speed.min(1E10).max(1E6);
+                    fly_speed = fly_speed.min(1E4 * LIGHT_YEAR).max(LIGHT_YEAR);
                 }
 
                 // Resize window
