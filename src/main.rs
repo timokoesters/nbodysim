@@ -54,14 +54,25 @@ impl Particle {
     }
 }
 
-fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle, clockwise: bool) {
+fn generate_galaxy(
+    particles: &mut Vec<Particle>,
+    amount: u32,
+    center: &Particle,
+    mut normal: Vector3<f32>,
+) {
+    normal = normal.normalize();
+    let tangent = normal.cross(Vector3::new(-normal.z, normal.x, normal.y));
+    let bitangent = normal.cross(tangent);
+
     for _ in 0..amount {
         let radius = 1E3 * LIGHT_YEAR + (thread_rng().gen::<f32>().powf(2.0)) * 50E3 * LIGHT_YEAR;
         let angle = thread_rng().gen::<f32>() * 2.0 * PI;
 
-        let mut pos = center.pos;
-        pos.x += radius * angle.cos();
-        pos.y += radius * angle.sin();
+        let diff = tangent * angle.sin() + bitangent * angle.cos();
+
+        let fly_direction = diff.cross(normal).normalize();
+
+        let pos = center.pos + diff * radius;
 
         let mass = 0E30;
         let density = 1.408;
@@ -71,10 +82,7 @@ fn generate_galaxy(particles: &mut Vec<Particle>, amount: u32, center: &Particle
         // sqrt(G * m2 / r) = v
 
         let speed = (G * center.mass / radius as f64).sqrt() as f32;
-
-        let mut vel = center.vel;
-        vel.x += speed * angle.sin() * if clockwise { -1.0 } else { 1.0 };
-        vel.y += speed * angle.cos() * if clockwise { 1.0 } else { -1.0 };
+        let vel = center.vel + fly_direction * speed;
 
         particles.push(Particle::new(pos, vel, mass, density));
     }
@@ -99,8 +107,18 @@ fn main() {
     particles.push(center);
     particles.push(center2);
 
-    generate_galaxy(&mut particles, 100_000, &center, true);
-    generate_galaxy(&mut particles, 100_000, &center2, false);
+    generate_galaxy(
+        &mut particles,
+        100_000,
+        &center,
+        Vector3::new(1.0, 0.0, 0.5),
+    );
+    generate_galaxy(
+        &mut particles,
+        100_000,
+        &center2,
+        Vector3::new(1.0, 1.0, 0.0),
+    );
 
     let globals = Globals {
         particles: particles.len() as u32,
