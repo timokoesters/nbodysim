@@ -1,0 +1,67 @@
+#version 450
+
+const float G = 6.67408E-11;
+const float MIN_DISTANCE2 = pow(1E8, 2);
+const float LIGHT_SPEED = 3E8;
+const float LIGHT_SPEED2 = pow(LIGHT_SPEED, 2);
+
+const uint PARTICLES_PER_GROUP = 8; // REMEMBER TO CHANGE MAIN.RS
+
+layout(local_size_x = PARTICLES_PER_GROUP) in;
+
+struct Particle {
+    vec3 pos; // 0, 1, 2
+    float radius; // 7
+    vec3 vel; // 4, 5, 6
+    double mass; // 7, 8
+};
+
+layout(set = 0, binding = 0) uniform GlobalsBuffer {
+    mat4 matrix;
+    vec3 camera_pos;
+    uint particles;
+    float delta;
+};
+
+layout(std430, set = 0, binding = 1) buffer DataOld {
+    Particle data_old[];
+};
+
+layout(std430, set = 0, binding = 2) buffer DataCurrent {
+    Particle data[];
+};
+
+float rand(vec3 co) {
+    return (fract(sin(dot(co.xyz, vec3(32.3485, 11.8743, 50.463))) * 48510.7134) - 0.5) * 2.0;
+}
+
+double length2(dvec3 v) {
+    return v.x * v.x + v.y * v.y + v.z * v.z;
+}
+
+void main() {
+    uint i = gl_GlobalInvocationID.x;
+
+    // Early return
+    if(data_old[i].mass < 0) { 
+        return;
+    }
+
+    // Gravity
+    if(delta > 0.0) {
+        dvec3 temp = dvec3(0.0, 0.0, 0.0);
+        for(int j = 0; j < particles; j++) {
+            if(j == i) { continue; }
+            if(data_old[j].mass == 0) { break; }
+
+            dvec3 diff = data_old[i].pos - data_old[j].pos;
+
+            dvec3 dir = normalize(diff);
+            temp += dir * data_old[j].mass / (length2(diff)+1E41);
+        }
+
+        // Update data
+        data[i].vel -= vec3(temp * G * delta);
+        data[i].pos += data[i].vel * delta;
+    }
+}

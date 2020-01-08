@@ -7,11 +7,6 @@ out gl_PerVertex {
 
 layout(location = 0) out vec3 fragColor;
 
-const float G = 6.67408E-11;
-const float MIN_DISTANCE2 = pow(1E8, 2);
-const float LIGHT_SPEED = 3E8;
-const float LIGHT_SPEED2 = pow(LIGHT_SPEED, 2);
-
 struct Particle {
     vec3 pos; // 0, 1, 2
     float radius; // 7
@@ -26,17 +21,9 @@ layout(set = 0, binding = 0) uniform GlobalsBuffer {
     float delta;
 };
 
-layout(std430, set = 0, binding = 1) buffer DataOld {
-    Particle data_old[];
-};
-
 layout(std430, set = 0, binding = 2) buffer DataCurrent {
     Particle data[];
 };
-
-float rand(vec3 co) {
-    return (fract(sin(dot(co.xyz, vec3(32.3485, 11.8743, 50.463))) * 48510.7134) - 0.5) * 2.0;
-}
 
 double length2(dvec3 v) {
     return v.x * v.x + v.y * v.y + v.z * v.z;
@@ -46,31 +33,9 @@ void main() {
     int i = gl_VertexIndex;
 
     // Early return
-    if(data_old[i].mass < 0) { 
+    if(data[i].mass < 0) { 
         gl_PointSize = 0;
         return;
-    }
-
-    // Gravity
-    if(delta > 0.0) {
-        dvec3 temp = dvec3(0.0, 0.0, 0.0);
-        for(int j = 0; j < particles; j++) {
-            if(j == i) { continue; }
-            if(data_old[j].mass == 0) { break; }
-
-            dvec3 diff = data_old[i].pos - data_old[j].pos;
-
-            dvec3 dir = normalize(diff);
-            temp += dir * data_old[j].mass / length2(diff);
-        }
-
-        data[i].vel -= vec3(temp * G * delta);
-        if(length2(data[i].vel) > LIGHT_SPEED2) {
-            data[i].vel = normalize(data[i].vel) * LIGHT_SPEED;
-        }
-
-        // Update pos
-        data[i].pos += data[i].vel * delta;
     }
 
     // Render
@@ -81,7 +46,12 @@ void main() {
     if(data[i].mass > 1E35) {
         fragColor = vec3(0.0, 0.0, 0.0);
     } else {
-        float red = float(clamp((length2(data[i].vel)) * 1E-12, 0.3, 1.0));
-        fragColor = vec3(red, 0.3, max(1-red, 0.3));
+        if(i%1000==0) {
+            fragColor = vec3(1.0, 0.0, 0.0);
+            gl_PointSize = 4;
+        }
+        else {
+            fragColor = vec3(0.1, 0.0, 0.5);
+        }
     }
 }

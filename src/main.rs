@@ -13,6 +13,8 @@ const SOLAR_MASS: f64 = 1.98847E30;
 const LIGHT_YEAR: f32 = 9.4607E15;
 const LIGHT_SPEED: f32 = 299792458.0;
 
+const PARTICLES_PER_GROUP: u32 = 8; // REMEMBER TO CHANGE SHADER.COMP
+
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 struct Particle {
@@ -78,11 +80,11 @@ fn generate_galaxy(
         let density = 1.408;
 
         // Fg = Fg
-        // G * m1 * m2 / r^2 = m1 * v^2 / r
-        // sqrt(G * m2 / r) = v
+        // G * m1 * m2 / (r^2 + C) = m1 * v^2 / r
+        // sqrt(G * m2 * r / (r^2 + C)) = v
 
-        let speed = (1.0 + (thread_rng().gen::<f32>()) / 8.0)
-            * (G * center.mass / radius as f64).sqrt() as f32;
+        let speed = (G * center.mass * radius as f64 / (radius as f64 * radius as f64 + 1E41))
+            .sqrt() as f32;
         let vel = center.vel + fly_direction * speed;
 
         particles.push(Particle::new(pos, vel, mass, density));
@@ -93,14 +95,14 @@ fn main() {
     let mut particles = Vec::new();
 
     let center = Particle::new(
-        Vector3::new(0.0, 3E4 * LIGHT_YEAR, 1E5 * LIGHT_YEAR),
-        Vector3::new(0.0, 0.0, -0.000001 * LIGHT_SPEED),
+        Vector3::new(0.0, 0.0, 0.0),
+        Vector3::new(0.0, 0.0, 0.0),
         10E6 * SOLAR_MASS,
         1.0,
     );
     let center2 = Particle::new(
         Vector3::new(0.0, -3E4 * LIGHT_YEAR, -1E5 * LIGHT_YEAR),
-        Vector3::new(0.0, 0.0, 0.000001 * LIGHT_SPEED),
+        Vector3::new(0.0, 0.0, 2E-7 * LIGHT_SPEED),
         10E6 * SOLAR_MASS,
         1.0,
     );
@@ -122,9 +124,9 @@ fn main() {
     );
 
     let globals = Globals {
-        particles: particles.len() as u32,
         matrix: Matrix4::from_translation(Vector3::new(0.0, 0.0, 0.0)),
-        camera_pos: Point3::new(1.0 * LIGHT_YEAR, 0.0, 0.0),
+        camera_pos: Point3::new(1.0, 0.0, 0.0),
+        particles: particles.len() as u32,
         delta: 0.0,
         _p: [0.0; 3],
     };
@@ -137,13 +139,14 @@ fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>, aspect: f32) -> Matrix4<f32
         fovy: Rad(PI / 2.0),
         aspect,
         near: 0.01,
-        far: 1E5 * LIGHT_YEAR,
+        far: 1E8 * LIGHT_YEAR,
     }) * Matrix4::look_at_dir(pos, dir, Vector3::new(0.0, 1.0, 0.0))
         * Matrix4::from_translation(pos.to_vec())
 }
 
 fn run(mut globals: Globals, particles: Vec<Particle>) {
     let particles_size = (particles.len() * std::mem::size_of::<Particle>()) as u64;
+    let work_group_count = ((particles.len() as f32) / (PARTICLES_PER_GROUP as f32)).ceil() as u32;
 
     let event_loop = EventLoop::new();
 
@@ -197,6 +200,13 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         },
         limits: wgpu::Limits::default(),
     });
+
+    // Load compute shader
+    let cs = include_str!("shader.comp");
+    let cs_module = device.create_shader_module(
+        &wgpu::read_spirv(glsl_to_spirv::compile(cs, glsl_to_spirv::ShaderType::Compute).unwrap())
+            .unwrap(),
+    );
 
     // Load vertex shader
     let vs = include_str!("shader.vert");
@@ -302,7 +312,16 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         bind_group_layouts: &[&bind_group_layout],
     });
 
-    // Describe the rendering process
+    // Create compute pipeline
+    let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
+        layout: &pipeline_layout,
+        compute_stage: wgpu::ProgrammableStageDescriptor {
+            module: &cs_module,
+            entry_point: "main",
+        },
+    });
+
+    // Create render pipeline
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
         layout: &pipeline_layout,
         vertex_stage: wgpu::ProgrammableStageDescriptor {
@@ -465,7 +484,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     .min(4.0)
                     .max(0.25);
 
-                    fly_speed = fly_speed.min(1E4 * LIGHT_YEAR).max(LIGHT_YEAR);
+                    fly_speed = fly_speed.min(1E5 * LIGHT_YEAR).max(LIGHT_YEAR);
                 }
 
                 // Resize window
@@ -536,6 +555,13 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                 encoder.copy_buffer_to_buffer(&current_buffer, 0, &old_buffer, 0, particles_size);
 
                 {
+                    let mut cpass = encoder.begin_compute_pass();
+                    cpass.set_pipeline(&compute_pipeline);
+                    cpass.set_bind_group(0, &bind_group, &[]);
+                    cpass.dispatch(work_group_count, PARTICLES_PER_GROUP, 1);
+                }
+
+                {
                     let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                         color_attachments: &[wgpu::RenderPassColorAttachmentDescriptor {
                             attachment: &frame.view,
@@ -543,9 +569,9 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                             load_op: wgpu::LoadOp::Clear,
                             store_op: wgpu::StoreOp::Store,
                             clear_color: wgpu::Color {
-                                r: 0.02,
-                                g: 0.02,
-                                b: 0.02,
+                                r: 0.03,
+                                g: 0.03,
+                                b: 0.03,
                                 a: 1.0,
                             },
                         }],
