@@ -56,8 +56,7 @@ void main() {
 
             dvec3 diff = data_old[i].pos - data_old[j].pos;
 
-            dvec3 dir = normalize(diff);
-            temp += dir * data_old[j].mass / (length2(diff)+1E41);
+            dvec3 dir = normalize(diff); temp += dir * data_old[j].mass / (length2(diff)+1E22);
         }
 
         // Update data

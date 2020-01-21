@@ -39,19 +39,22 @@ void main() {
     }
 
     // Render
-    gl_Position = matrix * vec4(data[i].pos - camera_pos, 1.0);
+    gl_Position = matrix * vec4(data[i].pos, 1.0);
 
-    gl_PointSize = float(clamp(data[i].mass * 4E-35, 1.5, 20));
+    if (data[i].mass > 0) {
+        gl_PointSize = 30 * 1E11 / gl_Position.z;
+    } else {
+        gl_PointSize = clamp(1 * 1E11 / gl_Position.z, 1, 5);
+    }
 
     if(data[i].mass > 1E35) {
         fragColor = vec3(0.0, 0.0, 0.0);
     } else {
-        if(i%1000==0) {
-            fragColor = vec3(1.0, 0.0, 0.0);
-            gl_PointSize = 4;
+        if(i < particles/2+1) {
+            fragColor = vec3(0.722, 0.22, 0.231);
         }
         else {
-            fragColor = vec3(0.1, 0.0, 0.5);
+            fragColor = vec3(0.345, 0.522, 0.635);
         }
     }
 }

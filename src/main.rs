@@ -1,3 +1,4 @@
+// All lengths in light seconds, all velocities in speed of light, all times in seconds
 use cgmath::prelude::*;
 use cgmath::{Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3};
 use rand::prelude::*;
@@ -10,8 +11,6 @@ use winit::{
 
 const G: f64 = 6.67408E-11;
 const SOLAR_MASS: f64 = 1.98847E30;
-const LIGHT_YEAR: f32 = 9.4607E15;
-const LIGHT_SPEED: f32 = 299792458.0;
 
 const PARTICLES_PER_GROUP: u32 = 8; // REMEMBER TO CHANGE SHADER.COMP
 
@@ -50,8 +49,8 @@ impl Particle {
             radius: (3.0 * mass / (4.0 * density * PI as f64)).cbrt() as f32,
             vel,
             mass,
-            _p: 0E30,
-            _p2: [0E30, 0E30],
+            _p: 0.0,
+            _p2: [0.0; 2],
         }
     }
 }
@@ -66,8 +65,13 @@ fn generate_galaxy(
     let tangent = normal.cross(Vector3::new(-normal.z, normal.x, normal.y));
     let bitangent = normal.cross(tangent);
 
-    for _ in 0..amount {
-        let radius = 1E3 * LIGHT_YEAR + (thread_rng().gen::<f32>().powf(2.0)) * 50E3 * LIGHT_YEAR;
+    // Generate center
+    for _ in 0..amount / 3 {
+        let radius = 5E9
+            + (rand_distr::Normal::<f32>::new(0.0, 1E11)
+                .unwrap()
+                .sample(&mut thread_rng()))
+            .abs();
         let angle = thread_rng().gen::<f32>() * 2.0 * PI;
 
         let diff = tangent * angle.sin() + bitangent * angle.cos();
@@ -83,7 +87,42 @@ fn generate_galaxy(
         // G * m1 * m2 / (r^2 + C) = m1 * v^2 / r
         // sqrt(G * m2 * r / (r^2 + C)) = v
 
-        let speed = (G * center.mass * radius as f64 / (radius as f64 * radius as f64 + 1E41))
+        let speed = (G * center.mass * radius as f64 / (radius as f64 * radius as f64 + 1E22))
+            .sqrt() as f32;
+        let vel = center.vel + fly_direction * speed;
+
+        particles.push(Particle::new(pos, vel, mass, density));
+    }
+
+    // Generate arms
+    for _ in 0..amount / 3 * 2 {
+        let arm = rand_distr::Uniform::from(0..2).sample(&mut thread_rng());
+
+        let radius = 5E9
+            + (rand_distr::Normal::<f32>::new(0.0, 1E11)
+                .unwrap()
+                .sample(&mut thread_rng()))
+            .abs();
+
+        let angle = arm as f32 / 2.0 * 2.0 * PI - radius * 1E-11
+            + rand_distr::Normal::new(0.0, PI / 8.0)
+                .unwrap()
+                .sample(&mut thread_rng());
+
+        let diff = tangent * angle.sin() + bitangent * angle.cos();
+
+        let fly_direction = diff.cross(normal).normalize();
+
+        let pos = center.pos + diff * radius;
+
+        let mass = 0E30;
+        let density = 1.408;
+
+        // Fg = Fg
+        // G * m1 * m2 / (r^2 + C) = m1 * v^2 / r
+        // sqrt(G * m2 * r / (r^2 + C)) = v
+
+        let speed = (G * center.mass * radius as f64 / (radius as f64 * radius as f64 + 1E22))
             .sqrt() as f32;
         let vel = center.vel + fly_direction * speed;
 
@@ -101,8 +140,8 @@ fn main() {
         1.0,
     );
     let center2 = Particle::new(
-        Vector3::new(0.0, -3E4 * LIGHT_YEAR, -1E5 * LIGHT_YEAR),
-        Vector3::new(0.0, 0.0, 2E-7 * LIGHT_SPEED),
+        Vector3::new(0.0, -3E11, -5E11),
+        Vector3::new(0.0, 0.0, 2E7),
         10E6 * SOLAR_MASS,
         1.0,
     );
@@ -112,13 +151,13 @@ fn main() {
 
     generate_galaxy(
         &mut particles,
-        100_000,
+        200_000,
         &center,
         Vector3::new(1.0, 0.0, 0.5),
     );
     generate_galaxy(
         &mut particles,
-        100_000,
+        200_000,
         &center2,
         Vector3::new(1.0, 1.0, 0.0),
     );
@@ -138,10 +177,9 @@ fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>, aspect: f32) -> Matrix4<f32
     Matrix4::from(PerspectiveFov {
         fovy: Rad(PI / 2.0),
         aspect,
-        near: 0.01,
-        far: 1E8 * LIGHT_YEAR,
+        near: 1E8,
+        far: 1E14,
     }) * Matrix4::look_at_dir(pos, dir, Vector3::new(0.0, 1.0, 0.0))
-        * Matrix4::from_translation(pos.to_vec())
 }
 
 fn run(mut globals: Globals, particles: Vec<Particle>) {
@@ -246,6 +284,31 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         )
         .fill_from_slice(&particles);
 
+    let mut swap_chain_descriptor = wgpu::SwapChainDescriptor {
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+        format: wgpu::TextureFormat::Bgra8UnormSrgb,
+        width: size.width,
+        height: size.height,
+        present_mode: wgpu::PresentMode::Vsync,
+    };
+
+    let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
+
+    let mut depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+        size: wgpu::Extent3d {
+            width: swap_chain_descriptor.width,
+            height: swap_chain_descriptor.height,
+            depth: 1,
+        },
+        array_layer_count: 1,
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT | wgpu::TextureUsage::SAMPLED,
+    });
+    let mut depth_view = depth_texture.create_default_view();
+
     // Describe the buffers that will be available to the GPU
     let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
         bindings: &[
@@ -334,9 +397,9 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         }),
         rasterization_state: Some(wgpu::RasterizationStateDescriptor {
             front_face: wgpu::FrontFace::Ccw,
-            cull_mode: wgpu::CullMode::None,
-            depth_bias: 0,
-            depth_bias_slope_scale: 0.0,
+            cull_mode: wgpu::CullMode::Front,
+            depth_bias: 2,
+            depth_bias_slope_scale: 2.0,
             depth_bias_clamp: 0.0,
         }),
         primitive_topology: wgpu::PrimitiveTopology::PointList,
@@ -346,23 +409,21 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
             alpha_blend: wgpu::BlendDescriptor::REPLACE,
             write_mask: wgpu::ColorWrite::ALL,
         }],
-        depth_stencil_state: None,
+        depth_stencil_state: Some(wgpu::DepthStencilStateDescriptor {
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::LessEqual,
+            stencil_front: wgpu::StencilStateFaceDescriptor::IGNORE,
+            stencil_back: wgpu::StencilStateFaceDescriptor::IGNORE,
+            stencil_read_mask: 0,
+            stencil_write_mask: 0,
+        }),
         index_format: wgpu::IndexFormat::Uint16,
         vertex_buffers: &[],
         sample_count: 1,
         sample_mask: !0,
         alpha_to_coverage_enabled: false,
     });
-
-    let mut swap_chain_descriptor = wgpu::SwapChainDescriptor {
-        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
-        format: wgpu::TextureFormat::Bgra8UnormSrgb,
-        width: size.width,
-        height: size.height,
-        present_mode: wgpu::PresentMode::Vsync,
-    };
-
-    let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 
     let mut camera_dir = -globals.camera_pos.to_vec();
     camera_dir = camera_dir.normalize();
@@ -371,12 +432,14 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         camera_dir,
         size.width as f32 / size.height as f32,
     );
-    let mut fly_speed = LIGHT_YEAR;
+    let mut fly_speed = 1E7;
 
     let mut pressed_keys = HashSet::new();
 
     let mut right = camera_dir.cross(Vector3::new(0.0, 1.0, 0.0));
     right = right.normalize();
+
+    let densitymap = [[[(); 1000]; 1000]; 1000];
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = if cfg!(feature = "metal-auto-capture") {
@@ -421,31 +484,22 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                             globals.delta = 0.0;
                         }
                         event::VirtualKeyCode::Key1 => {
-                            globals.delta = 1E13;
+                            globals.delta = 1E-1;
                         }
                         event::VirtualKeyCode::Key2 => {
-                            globals.delta = 2E13;
+                            globals.delta = 2E-1;
                         }
                         event::VirtualKeyCode::Key3 => {
-                            globals.delta = 4E13;
+                            globals.delta = 4E-1;
                         }
                         event::VirtualKeyCode::Key4 => {
-                            globals.delta = 8E13;
+                            globals.delta = 8E-1;
                         }
                         event::VirtualKeyCode::Key5 => {
-                            globals.delta = 16E13;
+                            globals.delta = 16E-1;
                         }
                         event::VirtualKeyCode::Key6 => {
-                            globals.delta = 32E13;
-                        }
-                        event::VirtualKeyCode::Key7 => {
-                            globals.delta = 64E13;
-                        }
-                        event::VirtualKeyCode::Key8 => {
-                            globals.delta = 128E13;
-                        }
-                        event::VirtualKeyCode::Key9 => {
-                            globals.delta = 256E13;
+                            globals.delta = 32E-1;
                         }
                         event::VirtualKeyCode::F11 => {
                             if window.fullscreen().is_some() {
@@ -484,7 +538,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     .min(4.0)
                     .max(0.25);
 
-                    fly_speed = fly_speed.min(1E5 * LIGHT_YEAR).max(LIGHT_YEAR);
+                    fly_speed = fly_speed.min(1E12).max(1E7);
                 }
 
                 // Resize window
@@ -493,6 +547,21 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     swap_chain_descriptor.width = new_size.width;
                     swap_chain_descriptor.height = new_size.height;
                     swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
+
+                    depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+                        size: wgpu::Extent3d {
+                            width: swap_chain_descriptor.width,
+                            height: swap_chain_descriptor.height,
+                            depth: 1,
+                        },
+                        array_layer_count: 1,
+                        mip_level_count: 1,
+                        sample_count: 1,
+                        dimension: wgpu::TextureDimension::D2,
+                        format: wgpu::TextureFormat::Depth32Float,
+                        usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
+                    });
+                    depth_view = depth_texture.create_default_view();
                 }
                 _ => {}
             },
@@ -575,7 +644,17 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                                 a: 1.0,
                             },
                         }],
-                        depth_stencil_attachment: None,
+                        depth_stencil_attachment: Some(
+                            wgpu::RenderPassDepthStencilAttachmentDescriptor {
+                                attachment: &depth_view,
+                                depth_load_op: wgpu::LoadOp::Clear,
+                                depth_store_op: wgpu::StoreOp::Store,
+                                clear_depth: 1.0,
+                                stencil_load_op: wgpu::LoadOp::Clear,
+                                stencil_store_op: wgpu::StoreOp::Store,
+                                clear_stencil: 0,
+                            },
+                        ),
                     });
                     rpass.set_pipeline(&render_pipeline);
                     rpass.set_bind_group(0, &bind_group, &[]);
