@@ -4,6 +4,7 @@ use cgmath::{Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3};
 use rand::prelude::*;
 use std::collections::HashSet;
 use std::f32::consts::PI;
+use std::time::Instant;
 use winit::{
     event,
     event_loop::{ControlFlow, EventLoop},
@@ -12,7 +13,7 @@ use winit::{
 const G: f64 = 6.67408E-11;
 const SOLAR_MASS: f64 = 1.98847E30;
 
-const PARTICLES_PER_GROUP: u32 = 8; // REMEMBER TO CHANGE SHADER.COMP
+const PARTICLES_PER_GROUP: u32 = 256; // REMEMBER TO CHANGE SHADER.COMP
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
@@ -136,13 +137,13 @@ fn main() {
     let center = Particle::new(
         Vector3::new(0.0, 0.0, 0.0),
         Vector3::new(0.0, 0.0, 0.0),
-        10E6 * SOLAR_MASS,
+        4E6 * SOLAR_MASS,
         1.0,
     );
     let center2 = Particle::new(
         Vector3::new(0.0, -3E11, -5E11),
         Vector3::new(0.0, 0.0, 2E7),
-        10E6 * SOLAR_MASS,
+        4E6 * SOLAR_MASS,
         1.0,
     );
 
@@ -151,13 +152,13 @@ fn main() {
 
     generate_galaxy(
         &mut particles,
-        200_000,
+        500_000,
         &center,
         Vector3::new(1.0, 0.0, 0.5),
     );
     generate_galaxy(
         &mut particles,
-        200_000,
+        500_000,
         &center2,
         Vector3::new(1.0, 1.0, 0.0),
     );
@@ -223,7 +224,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
 
     window.set_cursor_visible(false);
     window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(
-        window.primary_monitor(),
+        window.current_monitor(),
     )));
 
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
@@ -231,6 +232,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         backends: wgpu::BackendBit::PRIMARY,
     })
     .unwrap();
+    dbg!(adapter.get_info());
 
     let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {
         extensions: wgpu::Extensions {
@@ -260,12 +262,12 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
             .unwrap(),
     );
 
-    // Create a new buffer
+    // Create globals buffer
     let globals_buffer = device
         .create_buffer_mapped(1, wgpu::BufferUsage::UNIFORM | wgpu::BufferUsage::COPY_DST)
         .fill_from_slice(&[globals]);
 
-    // Create a new buffer
+    // Create old buffer
     let old_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         size: particles_size,
         usage: wgpu::BufferUsage::STORAGE
@@ -273,16 +275,17 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
             | wgpu::BufferUsage::COPY_DST,
     });
 
-    // Create a new buffer
-    let current_buffer = device
-        .create_buffer_mapped(
-            particles.len(),
-            wgpu::BufferUsage::STORAGE
-                | wgpu::BufferUsage::STORAGE_READ
-                | wgpu::BufferUsage::COPY_DST
-                | wgpu::BufferUsage::COPY_SRC,
-        )
+    // Create current buffer
+    let current_buffer_initializer = device
+        .create_buffer_mapped(particles.len(), wgpu::BufferUsage::COPY_SRC)
         .fill_from_slice(&particles);
+
+    let current_buffer = device.create_buffer(&wgpu::BufferDescriptor {
+        size: particles_size,
+        usage: wgpu::BufferUsage::STORAGE
+            | wgpu::BufferUsage::COPY_SRC
+            | wgpu::BufferUsage::COPY_DST,
+    });
 
     let mut swap_chain_descriptor = wgpu::SwapChainDescriptor {
         usage: wgpu::TextureUsage::OUTPUT_ATTACHMENT,
@@ -432,14 +435,32 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
         camera_dir,
         size.width as f32 / size.height as f32,
     );
-    let mut fly_speed = 1E7;
+    let mut fly_speed = 1E10;
 
     let mut pressed_keys = HashSet::new();
 
     let mut right = camera_dir.cross(Vector3::new(0.0, 1.0, 0.0));
     right = right.normalize();
 
-    let densitymap = [[[(); 1000]; 1000]; 1000];
+    let mut last_tick = Instant::now();
+
+    // TODO: let densitymap = [[[(); 1000]; 1000]; 1000];
+
+    // Initial setup
+    {
+        let mut encoder =
+            device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
+
+        encoder.copy_buffer_to_buffer(
+            &current_buffer_initializer,
+            0,
+            &current_buffer,
+            0,
+            particles_size,
+        );
+
+        queue.submit(&[encoder.finish()]);
+    }
 
     event_loop.run(move |event, _, control_flow| {
         *control_flow = if cfg!(feature = "metal-auto-capture") {
@@ -484,22 +505,26 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                             globals.delta = 0.0;
                         }
                         event::VirtualKeyCode::Key1 => {
-                            globals.delta = 1E-1;
+                            globals.delta = 1E0;
                         }
                         event::VirtualKeyCode::Key2 => {
-                            globals.delta = 2E-1;
+                            globals.delta = 2E0;
                         }
                         event::VirtualKeyCode::Key3 => {
-                            globals.delta = 4E-1;
+                            globals.delta = 4E0;
                         }
                         event::VirtualKeyCode::Key4 => {
-                            globals.delta = 8E-1;
+                            globals.delta = 8E0;
                         }
                         event::VirtualKeyCode::Key5 => {
-                            globals.delta = 16E-1;
+                            globals.delta = 16E0;
                         }
                         event::VirtualKeyCode::Key6 => {
-                            globals.delta = 32E-1;
+                            globals.delta = 32E0;
+                        }
+                        event::VirtualKeyCode::F => {
+                            let delta = last_tick.elapsed();
+                            println!("delta: {:?}, fps: {:.2}", delta, 1.0 / delta.as_secs_f32());
                         }
                         event::VirtualKeyCode::F11 => {
                             if window.fullscreen().is_some() {
@@ -538,7 +563,7 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     .min(4.0)
                     .max(0.25);
 
-                    fly_speed = fly_speed.min(1E12).max(1E7);
+                    fly_speed = fly_speed.min(1E13).max(1E9);
                 }
 
                 // Resize window
@@ -568,6 +593,10 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
 
             // Redraw
             event::Event::RedrawRequested(_window_id) => {
+                let delta = last_tick.elapsed();
+                let dt = delta.as_secs_f32();
+                last_tick = Instant::now();
+
                 let frame = swap_chain.get_next_texture();
                 let mut encoder =
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor { todo: 0 });
@@ -577,27 +606,27 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                 right = right.normalize();
 
                 if pressed_keys.contains(&event::VirtualKeyCode::A) {
-                    globals.camera_pos += -right * fly_speed;
+                    globals.camera_pos += -right * fly_speed * dt;
                 }
 
                 if pressed_keys.contains(&event::VirtualKeyCode::D) {
-                    globals.camera_pos += right * fly_speed;
+                    globals.camera_pos += right * fly_speed * dt;
                 }
 
                 if pressed_keys.contains(&event::VirtualKeyCode::W) {
-                    globals.camera_pos += camera_dir * fly_speed;
+                    globals.camera_pos += camera_dir * fly_speed * dt;
                 }
 
                 if pressed_keys.contains(&event::VirtualKeyCode::S) {
-                    globals.camera_pos += -camera_dir * fly_speed;
+                    globals.camera_pos += -camera_dir * fly_speed * dt;
                 }
 
                 if pressed_keys.contains(&event::VirtualKeyCode::Space) {
-                    globals.camera_pos.y -= fly_speed;
+                    globals.camera_pos.y -= fly_speed * dt;
                 }
 
                 if pressed_keys.contains(&event::VirtualKeyCode::LShift) {
-                    globals.camera_pos.y += fly_speed;
+                    globals.camera_pos.y += fly_speed * dt;
                 }
 
                 globals.matrix = build_matrix(
@@ -621,13 +650,18 @@ fn run(mut globals: Globals, particles: Vec<Particle>) {
                     std::mem::size_of::<Globals>() as u64,
                 );
 
-                encoder.copy_buffer_to_buffer(&current_buffer, 0, &old_buffer, 0, particles_size);
-
-                {
+                for _ in 0..3 {
+                    encoder.copy_buffer_to_buffer(
+                        &current_buffer,
+                        0,
+                        &old_buffer,
+                        0,
+                        particles_size,
+                    );
                     let mut cpass = encoder.begin_compute_pass();
                     cpass.set_pipeline(&compute_pipeline);
                     cpass.set_bind_group(0, &bind_group, &[]);
-                    cpass.dispatch(work_group_count, PARTICLES_PER_GROUP, 1);
+                    cpass.dispatch(work_group_count, 1, 1);
                 }
 
                 {

@@ -5,7 +5,7 @@ const float MIN_DISTANCE2 = pow(1E8, 2);
 const float LIGHT_SPEED = 3E8;
 const float LIGHT_SPEED2 = pow(LIGHT_SPEED, 2);
 
-const uint PARTICLES_PER_GROUP = 8; // REMEMBER TO CHANGE MAIN.RS
+const uint PARTICLES_PER_GROUP = 256; // REMEMBER TO CHANGE MAIN.RS
 
 layout(local_size_x = PARTICLES_PER_GROUP) in;
 
@@ -55,8 +55,7 @@ void main() {
             if(data_old[j].mass == 0) { break; }
 
             dvec3 diff = data_old[i].pos - data_old[j].pos;
-
-            dvec3 dir = normalize(diff); temp += dir * data_old[j].mass / (length2(diff)+1E22);
+            temp += normalize(diff) * data_old[j].mass / (length2(diff)+1E22);
         }
 
         // Update data
