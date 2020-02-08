@@ -1,0 +1,23 @@
+(
+    camera_pos: (
+        1E12,
+        0.0,
+        0.0,
+    ),
+    constructions: [
+        Galaxy (
+            center_pos: (0.0, 0.0, 0.0),
+            center_vel: (0.0, 0.0, 0.0),
+            center_mass: 1E35,
+            amount: 100000,
+            normal: (1.0, 0.0, 0.0),
+        ),
+        Galaxy (
+            center_pos: (1E12, 0.0, 0.0),
+            center_vel: (0.0, 0.0, 0.0),
+            center_mass: 1E34,
+            amount: 100000,
+            normal: (1.0, 0.0, 0.0),
+        )
+    ],
+)

@@ -42,7 +42,7 @@ void main() {
     gl_Position = matrix * vec4(data[i].pos, 1.0);
 
     if (data[i].mass > 0) {
-        gl_PointSize = 30 * 1E11 / gl_Position.z;
+        gl_PointSize = clamp(30 * 1E11 / gl_Position.z, 1, 20);
     } else {
         gl_PointSize = clamp(1 * 1E11 / gl_Position.z, 1, 5);
     }
