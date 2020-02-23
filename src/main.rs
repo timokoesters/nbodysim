@@ -38,8 +38,9 @@ pub struct Globals {
     matrix: Matrix4<f32>,    // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     camera_pos: Point3<f32>, // 16, 17, 18
     particles: u32,          // 19
-    delta: f32,              // 20
-    _p: [f32; 3],            // 21, 22, 23
+    safety: f32,             // 20
+    delta: f32,              // 21
+    _p: [f32; 2],            // 22, 23
 }
 
 impl Particle {
@@ -61,48 +62,18 @@ impl Particle {
 }
 
 fn main() {
-    let input_path = format!("{}/test.ron", env!("CARGO_MANIFEST_DIR"));
+    let input_path = format!("{}/examples/zwei-koerper-3.ron", env!("CARGO_MANIFEST_DIR"));
     let f = File::open(&input_path).expect("Failed opening file");
     let config: Config = from_reader(f).expect("Failed to load config!");
     let particles = config.construct_particles();
-
-    /*
-    let center = Particle::new(
-        Vector3::new(0.0, 0.0, 0.0),
-        Vector3::new(0.0, 0.0, 0.0),
-        4E6 * SOLAR_MASS,
-        1.0,
-    );
-    let center2 = Particle::new(
-        Vector3::new(0.0, -3E11, -5E11),
-        Vector3::new(0.0, 0.0, 2E7),
-        4E5 * SOLAR_MASS,
-        1.0,
-    );
-
-    particles.push(center);
-    particles.push(center2);
-
-    generate_galaxy(
-        &mut particles,
-        500_000,
-        &center,
-        Vector3::new(1.0, 0.0, 0.5),
-    );
-    generate_galaxy(
-        &mut particles,
-        500_000,
-        &center2,
-        Vector3::new(1.0, 1.0, 0.0),
-    );
-    */
 
     let globals = Globals {
         matrix: Matrix4::from_translation(Vector3::new(0.0, 0.0, 0.0)),
         camera_pos: config.camera_pos.into(),
         particles: particles.len() as u32,
+        safety: config.safety,
         delta: 0.0,
-        _p: [0.0; 3],
+        _p: [0.0; 2],
     };
 
     render::run(globals, particles);

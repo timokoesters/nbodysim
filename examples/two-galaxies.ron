@@ -4,6 +4,7 @@
         0.0,
         0.0,
     ),
+    safety: 1E22,
     constructions: [
         Galaxy (
             center_pos: (0.0, 0.0, 0.0),

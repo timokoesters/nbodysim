@@ -46,7 +46,7 @@ pub fn generate_galaxy(
         // G * m1 * m2 / (r^2 + C) = m1 * v^2 / r
         // sqrt(G * m2 * r / (r^2 + C)) = v
 
-        let speed = (G * center_mass * radius as f64 / (radius as f64 * radius as f64 + 1E22))
+        let speed = (G * center_mass * radius as f64 / (radius as f64 * radius as f64 + 1E19))
             .sqrt() as f32;
         let vel = center_vel + fly_direction * speed;
 

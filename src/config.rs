@@ -15,6 +15,7 @@ use winit::{
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
     pub camera_pos: [f32; 3],
+    pub safety: f32,
     pub constructions: Vec<Construction>,
 }
 
