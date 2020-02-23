@@ -38,9 +38,9 @@ pub struct Globals {
     matrix: Matrix4<f32>,    // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
     camera_pos: Point3<f32>, // 16, 17, 18
     particles: u32,          // 19
-    safety: f32,             // 20
-    delta: f32,              // 21
-    _p: [f32; 2],            // 22, 23
+    safety: f64,             // 20, 21
+    delta: f32,              // 22
+    _p: f32,                 // 23
 }
 
 impl Particle {
@@ -62,7 +62,7 @@ impl Particle {
 }
 
 fn main() {
-    let input_path = format!("{}/examples/zwei-koerper-3.ron", env!("CARGO_MANIFEST_DIR"));
+    let input_path = format!("{}/examples/two-galaxies.ron", env!("CARGO_MANIFEST_DIR"));
     let f = File::open(&input_path).expect("Failed opening file");
     let config: Config = from_reader(f).expect("Failed to load config!");
     let particles = config.construct_particles();
@@ -73,7 +73,7 @@ fn main() {
         particles: particles.len() as u32,
         safety: config.safety,
         delta: 0.0,
-        _p: [0.0; 2],
+        _p: 0.0,
     };
 
     render::run(globals, particles);

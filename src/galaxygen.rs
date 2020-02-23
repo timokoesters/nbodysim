@@ -15,6 +15,7 @@ const G: f64 = 6.67408E-11;
 pub fn generate_galaxy(
     particles: &mut Vec<Particle>,
     amount: u32,
+    safety: f64,
     center_pos: Point3<f32>,
     center_vel: Vector3<f32>,
     center_mass: f64,
@@ -46,7 +47,7 @@ pub fn generate_galaxy(
         // G * m1 * m2 / (r^2 + C) = m1 * v^2 / r
         // sqrt(G * m2 * r / (r^2 + C)) = v
 
-        let speed = (G * center_mass * radius as f64 / (radius as f64 * radius as f64 + 1E19))
+        let speed = (G * center_mass * radius as f64 / (radius as f64 * radius as f64 + safety))
             .sqrt() as f32;
         let vel = center_vel + fly_direction * speed;
 

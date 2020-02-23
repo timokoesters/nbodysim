@@ -1,22 +1,22 @@
 (
     camera_pos: (
-        1E12,
         0.0,
         0.0,
+        1E10,
     ),
     safety: 1E22,
     constructions: [
         Galaxy (
-            center_pos: (0.0, 0.0, 0.0),
-            center_vel: (0.0, 0.0, 0.0),
-            center_mass: 1E35,
+            center_pos: (-1E11, 0.0, 0.0),
+            center_vel: (0.0, 1E6, 0.0),
+            center_mass: 1E36,
             amount: 100000,
             normal: (1.0, 0.0, 0.0),
         ),
         Galaxy (
-            center_pos: (1E12, 0.0, 0.0),
+            center_pos: (1E11, 0.0, 0.0),
             center_vel: (0.0, 0.0, 0.0),
-            center_mass: 1E34,
+            center_mass: 1E36,
             amount: 100000,
             normal: (1.0, 0.0, 0.0),
         )

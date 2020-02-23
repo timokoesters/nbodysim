@@ -15,7 +15,7 @@ use winit::{
 #[derive(Deserialize, Clone, Debug)]
 pub struct Config {
     pub camera_pos: [f32; 3],
-    pub safety: f32,
+    pub safety: f64,
     pub constructions: Vec<Construction>,
 }
 
@@ -70,6 +70,7 @@ impl Config {
                 galaxygen::generate_galaxy(
                     &mut particles,
                     *amount,
+                    self.safety,
                     (*center_pos).into(),
                     (*center_vel).into(),
                     *center_mass,
