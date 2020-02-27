@@ -1,13 +1,14 @@
-use crate::{Globals, Particle};
-use cgmath::prelude::*;
-use cgmath::{Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3};
-use rand::prelude::*;
-use std::collections::HashSet;
-use std::f32::consts::PI;
-use std::time::Instant;
-use winit::{
-    event,
-    event_loop::{ControlFlow, EventLoop},
+use {
+    crate::{Globals, Particle},
+    cgmath::prelude::*,
+    cgmath::{Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3},
+    std::collections::HashSet,
+    std::f32::consts::PI,
+    std::time::Instant,
+    winit::{
+        event,
+        event_loop::{ControlFlow, EventLoop},
+    },
 };
 
 const PARTICLES_PER_GROUP: u32 = 256; // REMEMBER TO CHANGE SHADER.COMP
@@ -22,7 +23,9 @@ fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>, aspect: f32) -> Matrix4<f32
 }
 
 pub fn run(mut globals: Globals, particles: Vec<Particle>) {
+    // How many bytes do the particles need
     let particles_size = (particles.len() * std::mem::size_of::<Particle>()) as u64;
+
     let work_group_count = ((particles.len() as f32) / (PARTICLES_PER_GROUP as f32)).ceil() as u32;
 
     let event_loop = EventLoop::new();
@@ -286,8 +289,7 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
     let mut pressed_keys = HashSet::new();
 
     // Vector that points to the right of the camera
-    let mut right = camera_dir.cross(Vector3::new(0.0, 1.0, 0.0));
-    right = right.normalize();
+    let mut right = camera_dir.cross(Vector3::new(0.0, 1.0, 0.0)).normalize();
 
     // Time of the last tick
     let mut last_tick = Instant::now();
@@ -309,6 +311,7 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
         queue.submit(&[encoder.finish()]);
     }
 
+    // Start main loop
     event_loop.run(move |event, _, control_flow| {
         *control_flow = if cfg!(feature = "metal-auto-capture") {
             ControlFlow::Exit
@@ -417,7 +420,7 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
                 event::WindowEvent::Resized(new_size) => {
                     size = new_size;
 
-                    // Reset swap chain
+                    // Reset swap chain, it's outdated
                     swap_chain_descriptor.width = new_size.width;
                     swap_chain_descriptor.height = new_size.height;
                     swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
@@ -441,7 +444,7 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
                 _ => {}
             },
 
-            // Redraw
+            // Simulate and redraw
             event::Event::RedrawRequested(_window_id) => {
                 let delta = last_tick.elapsed();
                 let dt = delta.as_secs_f32();

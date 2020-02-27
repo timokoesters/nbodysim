@@ -47,7 +47,7 @@ void main() {
         gl_PointSize = clamp(1 * 1E11 / gl_Position.z, 1, 5);
     }
 
-    if(data[i].mass > 1E35) {
+    if(data[i].mass > 1E33) {
         fragColor = vec3(0.0, 0.0, 0.0);
     } else {
         if(i < particles/2+1) {

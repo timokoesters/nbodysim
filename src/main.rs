@@ -2,46 +2,51 @@ mod config;
 mod galaxygen;
 mod render;
 
-// All lengths in light seconds, all velocities in speed of light, all times in seconds
-use cgmath::prelude::*;
-use cgmath::{Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3};
-use config::{Config, Construction};
-use rand::prelude::*;
-use ron::de::from_reader;
-use std::collections::HashSet;
-use std::env;
-use std::f32::consts::PI;
-use std::fs::File;
-use std::time::Instant;
-use winit::{
-    event,
-    event_loop::{ControlFlow, EventLoop},
+use {
+    cgmath::{Matrix4, Point3, Vector3},
+    config::Config,
+    ron::de::from_reader,
+    std::env,
+    std::f32::consts::PI,
+    std::fs::File,
 };
-
-const SOLAR_MASS: f64 = 1.98847E30;
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
+/// An object with a position, velocity and mass that can be sent to the GPU.
 pub struct Particle {
+    /// Position
     pos: Point3<f32>, // 4, 8, 12
-    radius: f32,      // 16
 
+    /// The radius of the particle (currently unused)
+    radius: f32, // 16
+
+    /// Velocity
     vel: Vector3<f32>, // 4, 8, 12
-    _p: f32,           // 16
+    _p: f32, // 16
 
-    mass: f64,     // 4, 8
+    /// Mass
+    mass: f64, // 4, 8
     _p2: [f32; 2], // 12, 16
 }
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
+/// All variables that define the state of the program. Will be sent to the GPU.
 pub struct Globals {
-    matrix: Matrix4<f32>,    // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+    /// The camera matrix (projection x view matrix)
+    matrix: Matrix4<f32>, // 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+    /// The current camera position (used for particle size)
     camera_pos: Point3<f32>, // 16, 17, 18
-    particles: u32,          // 19
-    safety: f64,             // 20, 21
-    delta: f32,              // 22
-    _p: f32,                 // 23
+    /// The number of particles
+    particles: u32, // 19
+    /// Newton's law of gravitation has problems with 1D particles, this value works against
+    /// gravitation in close ranges.
+    safety: f64, // 20, 21
+    /// How much time passes each frame
+    delta: f32, // 22
+
+    _p: f32, // 23
 }
 
 impl Particle {
@@ -64,8 +69,8 @@ impl Particle {
 
 fn main() {
     // Read configuration file
-    let input_path = env::args().nth(1).unwrap();
-    let f = File::open(&input_path).expect("Failed opening file");
+    let input_path = env::args().nth(1).expect("No input file specified!");
+    let f = File::open(&input_path).expect("Failed opening file!");
     let config: Config = from_reader(f).expect("Failed to load config!");
 
     // Construct particles from config

@@ -1,18 +1,17 @@
-use crate::Particle;
-use cgmath::prelude::*;
-use cgmath::{Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3};
-use rand::prelude::*;
-use std::collections::HashSet;
-use std::f32::consts::PI;
-use std::time::Instant;
-use winit::{
-    event,
-    event_loop::{ControlFlow, EventLoop},
+use {
+    crate::Particle,
+    cgmath::{
+        prelude::*,
+        {Point3, Vector3},
+    },
+    rand::prelude::*,
+    std::f32::consts::PI,
 };
 
 const G: f64 = 6.67408E-11;
 const ARMS: u32 = 2;
 
+/// Fill the particles vector with many stars of a spiral galaxy.
 pub fn generate_galaxy(
     particles: &mut Vec<Particle>,
     amount: u32,
@@ -22,11 +21,12 @@ pub fn generate_galaxy(
     center_mass: f64,
     mut normal: Vector3<f32>,
 ) {
+    // Helpers
     normal = normal.normalize();
     let tangent = normal.cross(Vector3::new(-normal.z, normal.x, normal.y));
     let bitangent = normal.cross(tangent);
 
-    // Generate center
+    // Generate center of the galaxy
     for _ in 0..amount / 5 {
         let radius = 5E9
             + (rand_distr::Normal::<f32>::new(0.0, 1E11)
@@ -47,7 +47,6 @@ pub fn generate_galaxy(
         // Fg = Fg
         // G * m1 * m2 / (r^2 + C) = m1 * v^2 / r
         // sqrt(G * m2 * r / (r^2 + C)) = v
-
         let speed = (G * center_mass * radius as f64 / (radius as f64 * radius as f64 + safety))
             .sqrt() as f32;
         let vel = center_vel + fly_direction * speed;
@@ -55,7 +54,7 @@ pub fn generate_galaxy(
         particles.push(Particle::new(pos, vel, mass, density));
     }
 
-    // Generate arms
+    // Generate spiral arms of the galaxy
     for _ in 0..amount / 5 * 4 {
         // Choose arm
         let arm = rand_distr::Uniform::from(0..ARMS).sample(&mut thread_rng());
@@ -83,7 +82,6 @@ pub fn generate_galaxy(
         // Fg = Fg
         // G * m1 * m2 / (r^2 + C) = m1 * v^2 / r
         // sqrt(G * m2 * r / (r^2 + C)) = v
-
         let speed = (G * center_mass * radius as f64 / (radius as f64 * radius as f64 + safety))
             .sqrt() as f32;
         let vel = center_vel + fly_direction * speed;

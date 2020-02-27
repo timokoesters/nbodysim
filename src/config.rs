@@ -1,18 +1,10 @@
-use crate::{galaxygen, Particle};
-use cgmath::prelude::*;
-use cgmath::{Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3};
-use rand::prelude::*;
-use ron::de::from_reader;
-use serde::Deserialize;
-use std::collections::HashSet;
-use std::f32::consts::PI;
-use std::time::Instant;
-use winit::{
-    event,
-    event_loop::{ControlFlow, EventLoop},
+use {
+    crate::{galaxygen, Particle},
+    serde::Deserialize,
 };
 
 #[derive(Deserialize, Clone, Debug)]
+/// The configuration that specifies the initial values of the simulation.
 pub struct Config {
     pub camera_pos: [f32; 3],
     pub safety: f64,
@@ -20,6 +12,7 @@ pub struct Config {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+/// Description of a (group of) particles.
 pub enum Construction {
     Particle {
         pos: [f32; 3],
@@ -36,9 +29,11 @@ pub enum Construction {
 }
 
 impl Config {
+    /// Build the actual particles from the constructions.
     pub fn construct_particles(&self) -> Vec<Particle> {
         let mut particles = Vec::new();
 
+        // Those with mass first
         for c in &self.constructions {
             particles.push(match c {
                 Construction::Particle { pos, vel, mass } => {
@@ -58,6 +53,7 @@ impl Config {
             })
         }
 
+        // Particles without mass last
         for c in &self.constructions {
             if let Construction::Galaxy {
                 center_pos,
