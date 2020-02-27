@@ -4,19 +4,19 @@
         0.0,
         1E10,
     ),
-    safety: 1E22,
+    safety: 1E20,
     constructions: [
         Galaxy (
-            center_pos: (-1E11, 0.0, 0.0),
-            center_vel: (0.0, 1E6, 0.0),
-            center_mass: 1E36,
+            center_pos: (-1E11, -1E11, 0.0),
+            center_vel: (1E7, 0.0, 0.0),
+            center_mass: 1E35,
             amount: 100000,
             normal: (1.0, 0.0, 0.0),
         ),
         Galaxy (
-            center_pos: (1E11, 0.0, 0.0),
+            center_pos: (1E11, 1E11, 0.0),
             center_vel: (0.0, 0.0, 0.0),
-            center_mass: 1E36,
+            center_mass: 1E35,
             amount: 100000,
             normal: (1.0, 0.0, 0.0),
         )

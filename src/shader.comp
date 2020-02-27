@@ -55,12 +55,12 @@ void main() {
             if(j == i) { continue; }
             if(data_old[j].mass == 0) { break; }
 
-            dvec3 diff = data_old[i].pos - data_old[j].pos;
+            dvec3 diff = data_old[j].pos - data_old[i].pos;
             temp += normalize(diff) * data_old[j].mass / (length2(diff)+safety);
         }
 
         // Update data
-        data[i].vel -= vec3(temp * G * delta);
+        data[i].vel += vec3(temp * G * delta);
         data[i].pos += data[i].vel * delta;
     }
 }

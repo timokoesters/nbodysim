@@ -9,6 +9,7 @@ use config::{Config, Construction};
 use rand::prelude::*;
 use ron::de::from_reader;
 use std::collections::HashSet;
+use std::env;
 use std::f32::consts::PI;
 use std::fs::File;
 use std::time::Instant;
@@ -62,9 +63,12 @@ impl Particle {
 }
 
 fn main() {
-    let input_path = format!("{}/examples/two-galaxies.ron", env!("CARGO_MANIFEST_DIR"));
+    // Read configuration file
+    let input_path = env::args().nth(1).unwrap();
     let f = File::open(&input_path).expect("Failed opening file");
     let config: Config = from_reader(f).expect("Failed to load config!");
+
+    // Construct particles from config
     let particles = config.construct_particles();
 
     let globals = Globals {

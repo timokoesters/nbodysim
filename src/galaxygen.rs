@@ -11,6 +11,7 @@ use winit::{
 };
 
 const G: f64 = 6.67408E-11;
+const ARMS: u32 = 2;
 
 pub fn generate_galaxy(
     particles: &mut Vec<Particle>,
@@ -26,7 +27,7 @@ pub fn generate_galaxy(
     let bitangent = normal.cross(tangent);
 
     // Generate center
-    for _ in 0..amount / 3 {
+    for _ in 0..amount / 5 {
         let radius = 5E9
             + (rand_distr::Normal::<f32>::new(0.0, 1E11)
                 .unwrap()
@@ -55,8 +56,9 @@ pub fn generate_galaxy(
     }
 
     // Generate arms
-    for _ in 0..amount / 3 * 2 {
-        let arm = rand_distr::Uniform::from(0..2).sample(&mut thread_rng());
+    for _ in 0..amount / 5 * 4 {
+        // Choose arm
+        let arm = rand_distr::Uniform::from(0..ARMS).sample(&mut thread_rng());
 
         let radius = 5E9
             + (rand_distr::Normal::<f32>::new(0.0, 1E11)
@@ -64,8 +66,8 @@ pub fn generate_galaxy(
                 .sample(&mut thread_rng()))
             .abs();
 
-        let angle = arm as f32 / 2.0 * 2.0 * PI - radius * 1E-11
-            + rand_distr::Normal::new(0.0, PI / 8.0)
+        let angle = arm as f32 / ARMS as f32 * 2.0 * PI - radius * 1E-11
+            + rand_distr::Normal::new(0.0, PI / 16.0)
                 .unwrap()
                 .sample(&mut thread_rng());
 
@@ -82,7 +84,7 @@ pub fn generate_galaxy(
         // G * m1 * m2 / (r^2 + C) = m1 * v^2 / r
         // sqrt(G * m2 * r / (r^2 + C)) = v
 
-        let speed = (G * center_mass * radius as f64 / (radius as f64 * radius as f64 + 1E22))
+        let speed = (G * center_mass * radius as f64 / (radius as f64 * radius as f64 + safety))
             .sqrt() as f32;
         let vel = center_vel + fly_direction * speed;
 
