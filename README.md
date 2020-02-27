@@ -15,3 +15,6 @@ Controls:
 
 ![two bodies](video1.gif)
 ![two bodies](video2.gif)
+![two galaxies](galaxien1.png)
+![two galaxies](galaxien2.png)
+![two galaxies](galaxien3.png)
