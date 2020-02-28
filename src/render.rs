@@ -14,6 +14,7 @@ use {
     },
 };
 
+const TICKS_PER_FRAME: u32 = 3; // Number of simulation steps per redraw
 const PARTICLES_PER_GROUP: u32 = 256; // REMEMBER TO CHANGE SHADER.COMP
 
 fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>, aspect: f32) -> Matrix4<f32> {
@@ -509,7 +510,7 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
                 );
 
                 // Compute the simulation a few times
-                for _ in 0..3 {
+                for _ in 0..TICKS_PER_FRAME {
                     encoder.copy_buffer_to_buffer(
                         &current_buffer,
                         0,

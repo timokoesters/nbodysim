@@ -25,10 +25,6 @@ layout(std430, set = 0, binding = 2) buffer DataCurrent {
     Particle data[];
 };
 
-double length2(dvec3 v) {
-    return v.x * v.x + v.y * v.y + v.z * v.z;
-}
-
 void main() {
     int i = gl_VertexIndex;
 
@@ -48,8 +44,10 @@ void main() {
     }
 
     if(data[i].mass > 1E33) {
+        // Color objects with big mass black
         fragColor = vec3(0.0, 0.0, 0.0);
     } else {
+        // Give different colors to half of all particles
         if(i < particles/2+1) {
             fragColor = vec3(0.722, 0.22, 0.231);
         }
