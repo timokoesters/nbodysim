@@ -1,3 +1,5 @@
+//! This module is responsible for defining the external config format and parsing it.
+
 use {
     crate::{galaxygen, Particle},
     serde::Deserialize,

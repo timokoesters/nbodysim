@@ -1,14 +1,15 @@
+//! This is the main file of the project. It contains structures used by all other parts of the
+//! engine and the main method
+
 mod config;
 mod galaxygen;
 mod render;
 
 use {
     cgmath::{Matrix4, Point3, Vector3},
-    config::Config,
+    config::{Config, Construction},
     ron::de::from_reader,
-    std::env,
-    std::f32::consts::PI,
-    std::fs::File,
+    std::{env, f32::consts::PI, fs::File},
 };
 
 #[derive(Clone, Copy, Debug)]
@@ -68,10 +69,10 @@ impl Particle {
 }
 
 fn main() {
-    // Read configuration file
-    let input_path = env::args().nth(1).expect("No input file specified!");
-    let f = File::open(&input_path).expect("Failed opening file!");
-    let config: Config = from_reader(f).expect("Failed to load config!");
+    let config = read_config().unwrap_or_else(|| {
+        println!("Using default config.");
+        default_config()
+    });
 
     // Construct particles from config
     let particles = config.construct_particles();
@@ -86,4 +87,36 @@ fn main() {
     };
 
     render::run(globals, particles);
+}
+
+/// Read configuration file
+fn read_config() -> Option<Config> {
+    let input_path = env::args().nth(1)?;
+    let f = File::open(&input_path).expect("Failed opening file!");
+    let config = from_reader(f).expect("Failed to parse config!");
+
+    Some(config)
+}
+
+fn default_config() -> Config {
+    Config {
+        camera_pos: [0.0, 0.0, 1e10],
+        safety: 1e20,
+        constructions: vec![
+            Construction::Galaxy {
+                center_pos: [-2e11, -1e11, 0.0],
+                center_vel: [13e6, 0.0, 0.0],
+                center_mass: 1e35,
+                amount: 100000,
+                normal: [1.0, 0.0, 0.0],
+            },
+            Construction::Galaxy {
+                center_pos: [2e11, 1e11, 0.0],
+                center_vel: [0.0, 0.0, 0.0],
+                center_mass: 1e35,
+                amount: 100000,
+                normal: [1.0, 0.0, 0.0],
+            },
+        ],
+    }
 }

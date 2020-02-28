@@ -1,3 +1,6 @@
+//! This module handles everything that has to do with the window. That includes opening a window,
+//! parsing events and rendering. See shader.comp for the physics simulation algorithm.
+
 use {
     crate::{Globals, Particle},
     cgmath::prelude::*,
@@ -74,7 +77,7 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
         backends: wgpu::BackendBit::PRIMARY,
     })
     .unwrap();
-    dbg!(adapter.get_info());
+    println!("{:?}", adapter.get_info());
 
     // Request access to that GPU
     let (device, mut queue) = adapter.request_device(&wgpu::DeviceDescriptor {

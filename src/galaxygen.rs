@@ -1,3 +1,5 @@
+//! This module can generate spiral galaxies based on some parameters.
+
 use {
     crate::Particle,
     cgmath::{
