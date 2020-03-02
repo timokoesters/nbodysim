@@ -1,0 +1,25 @@
+(
+    camera_pos: (
+        0.0,
+        0.0,
+        1E9,
+    ),
+    safety: 1E15,
+    constructions: [
+        Particle (
+            pos: (0.0, 0.0, 0.0),
+            vel: (0.0, -3E4, 0.0),
+            mass: 1E31,
+        ),
+        Particle (
+            pos: (2E8, 3E8, 0.0),
+            vel: (1E6, -2E5, 0.0),
+            mass: 1E31,
+        ),
+        Particle (
+            pos: (5E8, -1E8, 0.0),
+            vel: (-2E5, 3E5, 0.0),
+            mass: 1E31,
+        ),
+    ],
+)

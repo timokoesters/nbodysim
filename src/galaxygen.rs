@@ -46,7 +46,7 @@ pub fn generate_galaxy(
         let mass = 0E30;
         let density = 1.408;
 
-        // Fg = Fg
+        // Fg = Fr
         // G * m1 * m2 / (r^2 + C) = m1 * v^2 / r
         // sqrt(G * m2 * r / (r^2 + C)) = v
         let speed = (G * center_mass * radius as f64 / (radius as f64 * radius as f64 + safety))
