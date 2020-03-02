@@ -104,18 +104,18 @@ fn default_config() -> Config {
         safety: 1e20,
         constructions: vec![
             Construction::Galaxy {
-                center_pos: [-2e11, -1e11, 0.0],
-                center_vel: [13e6, 0.0, 0.0],
+                center_pos: [-1e11, -1e11, 0.0],
+                center_vel: [10e6, 0.0, 0.0],
                 center_mass: 1e35,
                 amount: 100000,
                 normal: [1.0, 0.0, 0.0],
             },
             Construction::Galaxy {
-                center_pos: [2e11, 1e11, 0.0],
+                center_pos: [1e11, 1e11, 0.0],
                 center_vel: [0.0, 0.0, 0.0],
-                center_mass: 1e35,
+                center_mass: 3e35,
                 amount: 100000,
-                normal: [1.0, 0.0, 0.0],
+                normal: [1.0, 1.0, 0.0],
             },
         ],
     }

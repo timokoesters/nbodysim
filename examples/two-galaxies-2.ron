@@ -7,14 +7,14 @@
     safety: 1E20,
     constructions: [
         Galaxy (
-            center_pos: (-1E11, -1.0E11, 0.0),
+            center_pos: (-1E11, -1E11, 0.0),
             center_vel: (10E6, 0.0, 0.0),
             center_mass: 1E35,
             amount: 100000,
             normal: (1.0, 0.0, 0.0),
         ),
         Galaxy (
-            center_pos: (1E11, 1.0E11, 0.0),
+            center_pos: (1E11, 1E11, 0.0),
             center_vel: (0.0, 0.0, 0.0),
             center_mass: 3E35,
             amount: 100000,
