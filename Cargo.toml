@@ -7,10 +7,12 @@ edition = "2018"
 [dependencies]
 winit = "0.21.0"
 wgpu = "0.4.0"
-glsl-to-spirv = "0.1.7"
 cgmath = "0.17.0"
 raw-window-handle = "0.3.3"
 rand = "0.7.3"
 rand_distr = "0.2.2"
 ron = "0.5.1"
 serde = "1.0.104"
+
+[build-dependencies]
+glsl-to-spirv = "0.1.7"

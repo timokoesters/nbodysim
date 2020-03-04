@@ -3,11 +3,8 @@
 
 use {
     crate::{Globals, Particle},
-    cgmath::prelude::*,
-    cgmath::{Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3},
-    std::collections::HashSet,
-    std::f32::consts::PI,
-    std::time::Instant,
+    cgmath::{prelude::*, Matrix4, PerspectiveFov, Point3, Quaternion, Rad, Vector3},
+    std::{collections::HashSet, f32::consts::PI, io::Cursor, time::Instant},
     winit::{
         event,
         event_loop::{ControlFlow, EventLoop},
@@ -89,25 +86,16 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
     });
 
     // Load compute shader for the simulation
-    let cs = include_str!("shader.comp");
-    let cs_module = device.create_shader_module(
-        &wgpu::read_spirv(glsl_to_spirv::compile(cs, glsl_to_spirv::ShaderType::Compute).unwrap())
-            .unwrap(),
-    );
+    let cs = include_bytes!("shader.comp.spv");
+    let cs_module = device.create_shader_module(&wgpu::read_spirv(Cursor::new(cs.iter())).unwrap());
 
     // Load vertex shader to set calculate perspective, size and position of particles
-    let vs = include_str!("shader.vert");
-    let vs_module = device.create_shader_module(
-        &wgpu::read_spirv(glsl_to_spirv::compile(vs, glsl_to_spirv::ShaderType::Vertex).unwrap())
-            .unwrap(),
-    );
+    let vs = include_bytes!("shader.vert.spv");
+    let vs_module = device.create_shader_module(&wgpu::read_spirv(Cursor::new(vs.iter())).unwrap());
 
     // Load fragment shader
-    let fs = include_str!("shader.frag");
-    let fs_module = device.create_shader_module(
-        &wgpu::read_spirv(glsl_to_spirv::compile(fs, glsl_to_spirv::ShaderType::Fragment).unwrap())
-            .unwrap(),
-    );
+    let fs = include_bytes!("shader.frag.spv");
+    let fs_module = device.create_shader_module(&wgpu::read_spirv(Cursor::new(fs.iter())).unwrap());
 
     // Create globals buffer to give global information to the shader
     let globals_buffer = device
