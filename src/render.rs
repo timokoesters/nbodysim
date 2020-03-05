@@ -71,7 +71,7 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
 
     // Pick a GPU
     let adapter = wgpu::Adapter::request(&wgpu::RequestAdapterOptions {
-        power_preference: wgpu::PowerPreference::Default,
+        power_preference: wgpu::PowerPreference::HighPerformance,
         backends: wgpu::BackendBit::PRIMARY,
     })
     .unwrap();
