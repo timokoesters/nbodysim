@@ -41,6 +41,12 @@ $ cargo run --release
 $ cargo run --release -- examples/two-galaxies.ron
 ```
 
+![two galaxies](3dgalaxien01.png)
+![two galaxies](3dgalaxien02.png)
+![two galaxies](3dgalaxien03.png)
+![two galaxies](3dgalaxien04.png)
+![two galaxies](3dgalaxien05.png)
+![two galaxies](3dgalaxien06.png)
 ![two bodies](video1.gif)
 ![two bodies](video2.gif)
 ![two galaxies](galaxien1.png)
