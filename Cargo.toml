@@ -5,13 +5,13 @@ authors = ["timokoesters <timo@koesters.xyz>"]
 edition = "2018"
 
 [dependencies]
-winit = "0.21.0"
+winit = "0.25.0"
 wgpu = "0.4.0"
-cgmath = "0.17.0"
+cgmath = "0.18.0"
 raw-window-handle = "0.3.3"
-rand = "0.7.3"
-rand_distr = "0.2.2"
-ron = "0.5.1"
+rand = "0.8.4"
+rand_distr = "0.4.1"
+ron = "0.6.4"
 serde = "1.0.104"
 
 [build-dependencies]

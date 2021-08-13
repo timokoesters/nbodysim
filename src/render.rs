@@ -20,7 +20,7 @@ fn build_matrix(pos: Point3<f32>, dir: Vector3<f32>, aspect: f32) -> Matrix4<f32
         aspect,
         near: 1E8,
         far: 1E14,
-    }) * Matrix4::look_at_dir(pos, dir, Vector3::new(0.0, 1.0, 0.0))
+    }) * Matrix4::look_to_rh(pos, dir, Vector3::new(0.0, 1.0, 0.0))
 }
 
 pub fn run(mut globals: Globals, particles: Vec<Particle>) {
