@@ -1,6 +1,16 @@
 //! This is the main file of the project. It contains structures used by all other parts of the
 //! engine and the main method
 
+#![deny(
+    rust_2018_compatibility,
+    rust_2018_idioms,
+    future_incompatible,
+    nonstandard_style,
+    unused,
+    missing_copy_implementations,
+    clippy::all
+)]
+
 mod config;
 mod galaxygen;
 mod render;

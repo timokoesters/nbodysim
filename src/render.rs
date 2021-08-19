@@ -134,7 +134,7 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
     let mut swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 
     // Texture to keep track of which particle is in front (for the camera)
-    let mut depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+    let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
         size: wgpu::Extent3d {
             width: swap_chain_descriptor.width,
             height: swap_chain_descriptor.height,
@@ -418,7 +418,7 @@ pub fn run(mut globals: Globals, particles: Vec<Particle>) {
                     swap_chain = device.create_swap_chain(&surface, &swap_chain_descriptor);
 
                     // Reset depth texture
-                    depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+                    let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
                         size: wgpu::Extent3d {
                             width: swap_chain_descriptor.width,
                             height: swap_chain_descriptor.height,
