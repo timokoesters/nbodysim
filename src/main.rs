@@ -41,6 +41,9 @@ pub struct Particle {
     _p2: [f32; 2], // 12, 16
 }
 
+unsafe impl bytemuck::Pod for Particle {}
+unsafe impl bytemuck::Zeroable for Particle {}
+
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 /// All variables that define the state of the program. Will be sent to the GPU.
@@ -60,6 +63,9 @@ pub struct Globals {
     _p: f32, // 23
 }
 
+unsafe impl bytemuck::Pod for Globals {}
+unsafe impl bytemuck::Zeroable for Globals {}
+
 impl Particle {
     fn new(pos: Point3<f32>, vel: Vector3<f32>, mass: f64, density: f64) -> Self {
         Self {
@@ -78,7 +84,10 @@ impl Particle {
     }
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
+    pretty_env_logger::init();
+
     let config = read_config().unwrap_or_else(|| {
         println!("Using default config.");
         default_config()
@@ -96,7 +105,7 @@ fn main() {
         _p: 0.0,
     };
 
-    render::run(globals, particles);
+    render::run(globals, particles).await;
 }
 
 /// Read configuration file
