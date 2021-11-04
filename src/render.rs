@@ -44,19 +44,20 @@ pub async fn run(mut globals: Globals, particles: Vec<Particle>) {
         let surface = instance.create_surface(&window);
         (size, surface)
     };
-    let adapter = wgpu::util::initialize_adapter_from_env_or_default(&instance, backend)
-        .await
-        .expect("No suitable GPU adapters found on the system!");
+    let adapter =
+        wgpu::util::initialize_adapter_from_env_or_default(&instance, backend, Some(&surface))
+            .await
+            .expect("No suitable GPU adapters found on the system!");
 
     println!("{:?}", adapter.get_info());
 
     // Try to grab mouse
-    let _ = window.set_cursor_grab(true);
+    //let _ = window.set_cursor_grab(true);
 
-    window.set_cursor_visible(false);
-    window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(
-        window.primary_monitor(),
-    )));
+    //window.set_cursor_visible(false);
+    //window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(
+    //window.primary_monitor(),
+    //)));
 
     // Request access to that GPU
     let (device, queue) = adapter
@@ -449,9 +450,8 @@ pub async fn run(mut globals: Globals, particles: Vec<Particle>) {
                 let dt = delta.as_secs_f32();
                 last_tick = Instant::now();
 
-                let frame = surface.get_current_frame().unwrap();
+                let frame = surface.get_current_texture().unwrap();
                 let frame_view = frame
-                    .output
                     .texture
                     .create_view(&wgpu::TextureViewDescriptor::default());
 
@@ -540,18 +540,18 @@ pub async fn run(mut globals: Globals, particles: Vec<Particle>) {
                                     b: 0.03,
                                     a: 1.0,
                                 }),
-                                store: false,
+                                store: true,
                             },
                         }],
                         depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                             view: &depth_view,
                             depth_ops: Some(wgpu::Operations {
                                 load: wgpu::LoadOp::Clear(1.0),
-                                store: false,
+                                store: true,
                             }),
                             stencil_ops: Some(wgpu::Operations {
                                 load: wgpu::LoadOp::Clear(0),
-                                store: false,
+                                store: true,
                             }),
                         }),
                     });
@@ -561,6 +561,7 @@ pub async fn run(mut globals: Globals, particles: Vec<Particle>) {
                 }
 
                 queue.submit([encoder.finish()]);
+                frame.present();
             }
 
             // No more events in queue

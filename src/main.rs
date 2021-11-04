@@ -6,7 +6,6 @@
     rust_2018_idioms,
     future_incompatible,
     nonstandard_style,
-    unused,
     missing_copy_implementations,
     clippy::all
 )]
